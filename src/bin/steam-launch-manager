@@ -9,6 +9,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+import re
 
 import yaml
 
@@ -45,6 +46,98 @@ DEFAULT_CONFIG_PATH = "~/.config/steam-launch-manager"
 DEFAULT_STEAM_PATH = "~/.local/share/Steam"
 DEFAULT_BACKUP_PATH = "~/.config/steam-backups"
 
+# =============================================================================
+# 启动选项类型定义 - Launch Option Types
+# =============================================================================
+
+LAUNCH_OPTION_TYPES = {
+    "simple": "简单前置/后置参数",
+    "script": "复杂Shell脚本",
+    "template": "模板替换",
+    "raw": "原始替换（不解析）"
+}
+
+class LaunchOptionHandler:
+    """启动选项处理器 - 支持不同类型的启动选项"""
+    
+    def __init__(self):
+        self.command_placeholder_pattern = re.compile(r'%command%', re.IGNORECASE)
+    
+    def detect_option_type(self, launch_options):
+        """检测启动选项的类型"""
+        if not launch_options:
+            return "simple"
+            
+        # 检测复杂脚本模式
+        script_indicators = [
+            'eval $(',
+            'ln -s',
+            'IFS=:',
+            '|', 
+            '&&',
+            '||',
+            'for ',
+            'if [',
+            'sed "s/'
+        ]
+        
+        if any(indicator in launch_options for indicator in script_indicators):
+            return "script"
+            
+        # 检测模板替换
+        if '${' in launch_options or '$(' in launch_options:
+            return "template"
+            
+        # 默认为简单模式
+        return "simple"
+    
+    def apply_config_by_type(self, current_options, game_config):
+        """根据配置类型应用不同的处理逻辑"""
+        config_type = game_config.get("type", "simple")
+        
+        if config_type == "raw":
+            return self._apply_raw_config(current_options, game_config)
+        elif config_type == "script":
+            return self._apply_script_config(current_options, game_config)
+        elif config_type == "template":
+            return self._apply_template_config(current_options, game_config)
+        else:
+            return self._apply_simple_config(current_options, game_config)
+    
+    def _apply_raw_config(self, current_options, game_config):
+        """原始替换模式 - 直接使用配置中的启动选项"""
+        raw_options = game_config.get("raw_options", "")
+        return raw_options
+    
+    def _apply_script_config(self, current_options, game_config):
+        """脚本模式 - 保持复杂脚本的完整性"""
+        script_template = game_config.get("script_template", "")
+        
+        # 对于脚本模式，我们通常不进行复杂的合并
+        # 而是提供整个脚本作为启动选项
+        if script_template:
+            return script_template
+        
+        # 如果没有模板，回退到简单模式
+        return self._apply_simple_config(current_options, game_config)
+    
+    def _apply_template_config(self, current_options, game_config):
+        """模板模式 - 支持变量替换"""
+        template = game_config.get("template", "")
+        variables = game_config.get("variables", {})
+        
+        # 替换模板中的变量
+        result = template
+        for var_name, var_value in variables.items():
+            result = result.replace(f"${{{var_name}}}", str(var_value))
+        
+        return result
+    
+    def _apply_simple_config(self, current_options, game_config):
+        """简单模式 - 使用现有的前置/后置参数逻辑"""
+        # 这个方法在主类中会被覆盖
+        # 这里只是占位符，实际处理在 SteamLaunchManager 中
+        return current_options
 
 class SteamLaunchManager:
     def __init__(self, config_path=None):
@@ -55,6 +148,9 @@ class SteamLaunchManager:
         self.custom_config_path = self.config_dir / "custom" / "games.yaml"
         self.community_config_path = self.config_dir / "community" / "games.yaml"
         self.community_version_path = self.config_dir / "community" / "version.txt"
+
+        # 初始化启动选项处理器
+        self.launch_option_handler = LaunchOptionHandler()
 
         # 确保目录存在
         self.config_dir.mkdir(parents=True, exist_ok=True)
@@ -371,7 +467,6 @@ class SteamLaunchManager:
 
         # 查找 %command% 占位符（大小写不敏感）
         # Steam 可能使用不同大小写的 %command%，如 %COMMAND%
-        import re
         command_pattern = re.compile(r'%command%', re.IGNORECASE)
         match = command_pattern.search(current_options)
         
@@ -449,11 +544,21 @@ class SteamLaunchManager:
         env_params = [f"{k}={v}" for k, v in final_env.items()]
 
         if position == "before":
-            return env_params + user_non_env + managed_non_env
+            all_params = env_params + user_non_env + managed_non_env
         elif position == "after":
-            return managed_non_env + env_params + user_non_env
+            all_params = managed_non_env + env_params + user_non_env
         else:  # replace
-            return env_params + managed_non_env
+            all_params = env_params + managed_non_env
+        
+        # 去重但保持顺序（对非环境变量参数）
+        final_params = []
+        seen = set()
+        for param in all_params:
+            if param not in seen:
+                final_params.append(param)
+                seen.add(param)
+        
+        return final_params
 
     def merge_suffix_params(self, user_suffix, config_suffix, user_handling, conflicts):
         """合并后置参数"""
@@ -479,13 +584,21 @@ class SteamLaunchManager:
                 else:
                     processed_user_params.append(param)
 
-            # 按位置合并参数
+            # 按位置合并参数，去重
             if position == "before":
-                final_params = processed_user_params + managed_params
+                all_params = processed_user_params + managed_params
             elif position == "after":
-                final_params = managed_params + processed_user_params
+                all_params = managed_params + processed_user_params
             else:  # replace
-                final_params = managed_params
+                all_params = managed_params
+            
+            # 去重但保持顺序
+            final_params = []
+            seen = set()
+            for param in all_params:
+                if param not in seen:
+                    final_params.append(param)
+                    seen.add(param)
 
         return " ".join(final_params)
 
@@ -526,36 +639,43 @@ class SteamLaunchManager:
             if self.custom_config.get("global", {}).get("backup_enabled", True):
                 self.backup_config(app_id, current_options)
 
-            # 解析和合并参数
-            user_prefix, user_suffix = self.parse_current_params(current_options)
-
-            # 处理前置参数
-            prefix_config = game_config.get("prefix", {})
-            final_prefix = self.merge_prefix_params(
-                user_prefix,
-                prefix_config,
-                prefix_config.get("user_handling", {}),
-                prefix_config.get("conflicts", {}),
-            )
-
-            # 处理后置参数
-            suffix_config = game_config.get("suffix", {})
-            final_suffix = self.merge_suffix_params(
-                user_suffix,
-                suffix_config,
-                suffix_config.get("user_handling", {}),
-                suffix_config.get("conflicts", {}),
-            )
-
-            # 构建最终参数
-            if final_prefix and final_suffix:
-                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER} {final_suffix}"
-            elif final_prefix:
-                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER}"
-            elif final_suffix:
-                new_options = f"{COMMAND_PLACEHOLDER} {final_suffix}"
+            # 检查配置类型并应用相应的处理逻辑
+            config_type = game_config.get("type", "simple")
+            
+            if config_type in ["script", "template", "raw"]:
+                # 使用新的处理器处理复杂配置
+                new_options = self.launch_option_handler.apply_config_by_type(current_options, game_config)
             else:
-                new_options = COMMAND_PLACEHOLDER
+                # 使用传统的前置/后置参数处理
+                user_prefix, user_suffix = self.parse_current_params(current_options)
+
+                # 处理前置参数
+                prefix_config = game_config.get("prefix", {})
+                final_prefix = self.merge_prefix_params(
+                    user_prefix,
+                    prefix_config,
+                    prefix_config.get("user_handling", {}),
+                    prefix_config.get("conflicts", {}),
+                )
+
+                # 处理后置参数
+                suffix_config = game_config.get("suffix", {})
+                final_suffix = self.merge_suffix_params(
+                    user_suffix,
+                    suffix_config,
+                    suffix_config.get("user_handling", {}),
+                    suffix_config.get("conflicts", {}),
+                )
+
+                # 构建最终参数
+                if final_prefix and final_suffix:
+                    new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER} {final_suffix}"
+                elif final_prefix:
+                    new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER}"
+                elif final_suffix:
+                    new_options = f"{COMMAND_PLACEHOLDER} {final_suffix}"
+                else:
+                    new_options = COMMAND_PLACEHOLDER
 
             # 显示变更
             if current_options != new_options:
@@ -642,36 +762,43 @@ class SteamLaunchManager:
             )
             current_options = apps.get(app_id, {}).get("LaunchOptions", "")
 
-            # 计算新配置
-            user_prefix, user_suffix = self.parse_current_params(current_options)
-
-            # 处理前置参数
-            prefix_config = game_config.get("prefix", {})
-            final_prefix = self.merge_prefix_params(
-                user_prefix,
-                prefix_config,
-                prefix_config.get("user_handling", {}),
-                prefix_config.get("conflicts", {}),
-            )
-
-            # 处理后置参数
-            suffix_config = game_config.get("suffix", {})
-            final_suffix = self.merge_suffix_params(
-                user_suffix,
-                suffix_config,
-                suffix_config.get("user_handling", {}),
-                suffix_config.get("conflicts", {}),
-            )
-
-            # 构建最终参数
-            if final_prefix and final_suffix:
-                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER} {final_suffix}"
-            elif final_prefix:
-                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER}"
-            elif final_suffix:
-                new_options = f"{COMMAND_PLACEHOLDER} {final_suffix}"
+            # 检查配置类型并计算新配置
+            config_type = game_config.get("type", "simple")
+            
+            if config_type in ["script", "template", "raw"]:
+                # 使用新的处理器处理复杂配置
+                new_options = self.launch_option_handler.apply_config_by_type(current_options, game_config)
             else:
-                new_options = COMMAND_PLACEHOLDER
+                # 使用传统的前置/后置参数处理
+                user_prefix, user_suffix = self.parse_current_params(current_options)
+
+                # 处理前置参数
+                prefix_config = game_config.get("prefix", {})
+                final_prefix = self.merge_prefix_params(
+                    user_prefix,
+                    prefix_config,
+                    prefix_config.get("user_handling", {}),
+                    prefix_config.get("conflicts", {}),
+                )
+
+                # 处理后置参数
+                suffix_config = game_config.get("suffix", {})
+                final_suffix = self.merge_suffix_params(
+                    user_suffix,
+                    suffix_config,
+                    suffix_config.get("user_handling", {}),
+                    suffix_config.get("conflicts", {}),
+                )
+
+                # 构建最终参数
+                if final_prefix and final_suffix:
+                    new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER} {final_suffix}"
+                elif final_prefix:
+                    new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER}"
+                elif final_suffix:
+                    new_options = f"{COMMAND_PLACEHOLDER} {final_suffix}"
+                else:
+                    new_options = COMMAND_PLACEHOLDER
 
             # 显示详细差异
             print("\n📋 Current configuration:")
@@ -688,8 +815,15 @@ class SteamLaunchManager:
                     print(f"   + Will add: {new_options}")
                 elif new_options == COMMAND_PLACEHOLDER:
                     print("   - Will remove all launch options")
+                elif config_type in ["script", "template", "raw"]:
+                    # 复杂配置类型的简化显示
+                    print(f"   🔧 Configuration type: {config_type}")
+                    if game_config.get("description"):
+                        print(f"   📝 Description: {game_config['description']}")
+                    print(f"   - Current: {current_options or '(empty)'}")
+                    print(f"   + Proposed: {new_options}")
                 else:
-                    # 解析当前和新的参数进行详细对比
+                    # 解析当前和新的参数进行详细对比（简单模式）
                     curr_prefix, curr_suffix = self.parse_current_params(
                         current_options
                     )

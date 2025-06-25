@@ -66,12 +66,9 @@ games:
   "243200":
     # The Dark Eye: Memoria - 音频驱动修复
     name: "The Dark Eye: Memoria"
-    prefix:
-      params:
-        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done;'
-      user_handling:
-        preserve: true
-        position: "before"
+    type: "script"
+    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done; %command%'
+    description: "音频驱动注册表修复"
         
   "312530":
     # Duck Game - Linux 模式
@@ -146,12 +143,9 @@ games:
   "205950":
     # Jet Set Radio - 可执行文件重定向
     name: "Jet Set Radio"
-    prefix:
-      params:
-        - 'eval $(echo "%command%" | sed "s/jsrsetup.exe/jetsetradio.exe/")'
-      user_handling:
-        preserve: true
-        position: "replace"
+    type: "script"
+    script_template: 'eval $(echo "%command%" | sed "s/jsrsetup.exe/jetsetradio.exe/")'
+    description: "修复可执行文件路径问题"
         
   "899770":
     # Last Epoch - SteamDeck 兼容性
@@ -206,12 +200,9 @@ games:
   "105000":
     # A New Beginning - Final Cut - 音频驱动修复
     name: "A New Beginning - Final Cut"
-    prefix:
-      params:
-        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "winmm" /f; break; fi; done;'
-      user_handling:
-        preserve: true
-        position: "before"
+    type: "script"
+    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "winmm" /f; break; fi; done; %command%'
+    description: "音频驱动注册表修复"
         
   "404540":
     # Nex Machina - 音频延迟修复
@@ -226,12 +217,9 @@ games:
   "230820":
     # The Night of the Rabbit - 音频驱动修复
     name: "The Night of the Rabbit"
-    prefix:
-      params:
-        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done;'
-      user_handling:
-        preserve: true
-        position: "before"
+    type: "script"
+    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done; %command%'
+    description: "音频驱动注册表修复"
         
   "607080":
     # Psychonauts 2 - 强制DX11
@@ -273,12 +261,9 @@ games:
   "282210":
     # Sid Meier's Starships - 可执行文件重定向
     name: "Sid Meier's Starships"
-    prefix:
-      params:
-        - 'eval $(echo "%command%" | sed "s/Starships64.exe/Starships.exe/")'
-      user_handling:
-        preserve: true
-        position: "replace"
+    type: "script"
+    script_template: 'eval $(echo "%command%" | sed "s/Starships64.exe/Starships.exe/")'
+    description: "修复64位可执行文件路径"
         
   "969990":
     # SpongeBob SquarePants: Battle for Bikini Bottom - Rehydrated - 音频延迟修复
@@ -303,12 +288,9 @@ games:
   "312670":
     # Strange Brigade - Vulkan 渲染器
     name: "Strange Brigade"
-    prefix:
-      params:
-        - 'eval $(echo "%command%" | sed "s/StrangeBrigade.exe/StrangeBrigade_Vulkan.exe/")'
-      user_handling:
-        preserve: true
-        position: "replace"
+    type: "script"
+    script_template: 'eval $(echo "%command%" | sed "s/StrangeBrigade.exe/StrangeBrigade_Vulkan.exe/")'
+    description: "启用Vulkan渲染器"
         
   "607050":
     # Wargroove - 跳过介绍
@@ -329,6 +311,25 @@ games:
       user_handling:
         preserve: true
         position: "before"
+
+  # ========== 复杂脚本配置示例 ==========
+  
+  "example_script":
+    name: "复杂脚本示例 (可删除)"
+    type: "script"
+    script_template: 'ln -s "Game.exe" game.exe; eval $(echo "%command%" | sed "s/Game.exe/game.exe/")'
+    description: "创建软链接并重定向可执行文件"
+    
+  "example_template":
+    name: "模板配置示例 (可删除)"
+    type: "template"
+    template: "CUSTOM_VAR=${custom_value} THREAD_COUNT=${threads} %command% -res ${width}x${height}"
+    variables:
+      custom_value: "performance"
+      threads: 4
+      width: 1920
+      height: 1080
+    description: "使用变量模板的启动配置"
 
   # ========== 性能优化示例 ==========
   
