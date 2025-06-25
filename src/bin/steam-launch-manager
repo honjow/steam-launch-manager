@@ -219,18 +219,20 @@ class SteamLaunchManager:
         print(f"Created custom config at: {self.custom_config_path}")
         return default_config
 
-    def get_game_config(self, app_id):
+    def get_game_config(self, app_id, verbose=True):
         """获取游戏配置：用户配置优先于社区配置"""
         # 1. 检查用户自定义配置
         custom_games = self.custom_config.get("games", {})
         if app_id in custom_games:
-            print(f"Using custom config for {app_id}")
+            if verbose:
+                print(f"Using custom config for {app_id}")
             return custom_games[app_id], "custom"
 
         # 2. 使用社区预设配置
         community_games = self.community_config.get("games", {})
         if app_id in community_games:
-            print(f"Using community config for {app_id}")
+            if verbose:
+                print(f"Using community config for {app_id}")
             return community_games[app_id], "community"
 
         # 3. 没有配置
@@ -483,6 +485,48 @@ class SteamLaunchManager:
         prefix_params = prefix_part.split() if prefix_part else []
         return prefix_params, suffix_part
 
+    def are_configs_equivalent(self, current_options, new_options):
+        """检查两个配置是否实质相同（忽略仅添加%command%的情况）"""
+        if current_options == new_options:
+            return True
+        
+        # 规范化处理（去除多余空格，统一%command%格式）
+        def normalize_config(config):
+            if not config:
+                return ""
+            # 规范化%command%周围的空格
+            normalized = re.sub(r'\s*%command%\s*', ' %command% ', config, flags=re.IGNORECASE)
+            # 清理多余空格
+            normalized = ' '.join(normalized.split())
+            return normalized.strip()
+        
+        normalized_current = normalize_config(current_options)
+        normalized_new = normalize_config(new_options)
+        
+        if normalized_current == normalized_new:
+            return True
+        
+        # 解析两个配置
+        curr_prefix, curr_suffix = self.parse_current_params(current_options)
+        new_prefix, new_suffix = self.parse_current_params(new_options)
+        
+        # 如果前置参数为空且后置参数相同，视为等价
+        if not curr_prefix and not new_prefix and curr_suffix == new_suffix:
+            return True
+            
+        # 特殊情况：当前没有%command%，新配置只是添加了%command%但参数内容相同
+        if not current_options.strip():
+            return new_options == COMMAND_PLACEHOLDER
+        
+        if COMMAND_PLACEHOLDER not in current_options and COMMAND_PLACEHOLDER in new_options:
+            # 检查是否只是在相同内容前添加了%command%
+            expected_new = f"{COMMAND_PLACEHOLDER} {current_options}".strip()
+            if new_options == expected_new:
+                return True
+        
+        return False
+
+
     def merge_prefix_params(self, user_prefix, config_prefix, user_handling, conflicts):
         """合并前置参数"""
         managed_params = config_prefix.get("params", [])
@@ -602,15 +646,16 @@ class SteamLaunchManager:
 
         return " ".join(final_params)
 
-    def apply_game_config(self, app_id, dry_run=False):
+    def apply_game_config(self, app_id, dry_run=False, verbose=True):
         """应用单个游戏的配置"""
-        game_config, config_source = self.get_game_config(app_id)
+        game_config, config_source = self.get_game_config(app_id, verbose=verbose)
         if not game_config:
-            print(f"No config found for app {app_id}")
+            if verbose:
+                print(f"No config found for app {app_id}")
             return False
 
         # 检查 Steam 是否正在运行
-        if not dry_run and self.is_steam_running():
+        if verbose and not dry_run and self.is_steam_running():
             print(
                 "Warning: Steam is running. Changes may not take effect until Steam is restarted."
             )
@@ -645,6 +690,9 @@ class SteamLaunchManager:
             if config_type in ["script", "template", "raw"]:
                 # 使用新的处理器处理复杂配置
                 new_options = self.launch_option_handler.apply_config_by_type(current_options, game_config)
+            elif self.launch_option_handler.detect_option_type(current_options) == "script":
+                # 用户已经在使用脚本配置，跳过管理
+                new_options = current_options
             else:
                 # 使用传统的前置/后置参数处理
                 user_prefix, user_suffix = self.parse_current_params(current_options)
@@ -678,12 +726,21 @@ class SteamLaunchManager:
                     new_options = COMMAND_PLACEHOLDER
 
             # 显示变更
-            if current_options != new_options:
-                print(f"\nApp {app_id} ({game_config.get('name', 'Unknown')}):")
-                print(f"  Before: {current_options or '(empty)'}")
-                print(f"  After:  {new_options}")
+            if not self.are_configs_equivalent(current_options, new_options):
+                if verbose:
+                    print(f"\nApp {app_id} ({game_config.get('name', 'Unknown')}):")
+                    print(f"  Before: {current_options or '(empty)'}")
+                    print(f"  After:  {new_options}")
+                else:
+                    print(f"🔧 {game_config.get('name', f'App {app_id}')}")
+                    print(f"   Before: {current_options or '(empty)'}")
+                    print(f"   After:  {new_options}")
 
                 if not dry_run:
+                    # 备份原始配置
+                    if self.custom_config.get("global", {}).get("backup_enabled", True):
+                        self.backup_config(app_id, current_options)
+                    
                     # 应用更改
                     if app_id not in apps:
                         apps[app_id] = {}
@@ -694,9 +751,12 @@ class SteamLaunchManager:
 
                     success = True
             else:
-                print(f"App {app_id}: No changes needed")
+                if verbose:
+                    print(f"App {app_id}: No changes needed")
 
         return success
+
+
 
     def backup_config(self, app_id, current_options):
         """备份当前配置"""
@@ -727,10 +787,24 @@ class SteamLaunchManager:
         if dry_run:
             print("DRY RUN MODE - No changes will be made")
 
+        changed_count = 0
+        skipped_count = 0
+        
         for app_id in all_games:
             if app_id.startswith("example_"):
                 continue  # 跳过示例配置
-            self.apply_game_config(app_id, dry_run)
+            
+            # 简洁模式应用单个游戏配置
+            success = self.apply_game_config(app_id, dry_run, verbose=False)
+            if success:
+                changed_count += 1
+            else:
+                skipped_count += 1
+        
+        # 总结
+        print(f"\n📊 Summary:")
+        print(f"   ✅ {changed_count} games updated")
+        print(f"   ⚪ {skipped_count} games no changes needed")
 
     def show_diff(self, app_id):
         """显示配置差异对比"""
@@ -768,6 +842,9 @@ class SteamLaunchManager:
             if config_type in ["script", "template", "raw"]:
                 # 使用新的处理器处理复杂配置
                 new_options = self.launch_option_handler.apply_config_by_type(current_options, game_config)
+            elif self.launch_option_handler.detect_option_type(current_options) == "script":
+                # 用户已经在使用脚本配置，跳过管理
+                new_options = current_options
             else:
                 # 使用传统的前置/后置参数处理
                 user_prefix, user_suffix = self.parse_current_params(current_options)
@@ -800,14 +877,14 @@ class SteamLaunchManager:
                 else:
                     new_options = COMMAND_PLACEHOLDER
 
-            # 显示详细差异
-            print("\n📋 Current configuration:")
-            print(f"   {current_options or '(empty)'}")
+            # 检查是否有实质性变化
+            if not self.are_configs_equivalent(current_options, new_options):
+                # 显示详细差异
+                print("\n📋 Current configuration:")
+                print(f"   {current_options or '(empty)'}")
 
-            print("\n🎯 Proposed configuration:")
-            print(f"   {new_options}")
-
-            if current_options != new_options:
+                print("\n🎯 Proposed configuration:")
+                print(f"   {new_options}")
                 print("\n🔄 Changes:")
 
                 # 分析具体变化
