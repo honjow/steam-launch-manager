@@ -23,6 +23,10 @@ except ImportError:
 # 配置参数 - Configuration Parameters
 # =============================================================================
 
+APP_NAME = "steam-launch-manager"
+INNER_DB_PATH = f"/usr/share/{APP_NAME}/data/games-db.yaml"
+INNER_VERSION_PATH = f"/usr/share/{APP_NAME}/VERSION"
+
 # Steam 启动参数占位符
 COMMAND_PLACEHOLDER = "%command%"
 
@@ -161,6 +165,9 @@ class SteamLaunchManager:
         self.custom_config = self.load_custom_config()
         self.community_config = self.load_community_config()
 
+        # 检查并应用内置版本更新
+        self.check_inner_version_update()
+
         # 检查社区配置更新
         self.check_community_updates()
 
@@ -237,6 +244,94 @@ class SteamLaunchManager:
 
         # 3. 没有配置
         return None, None
+
+    def check_inner_version_update(self):
+        """检查内置版本并在版本更高时覆盖本地数据库"""
+        try:
+            inner_version = self._get_inner_version()
+            if not inner_version:
+                return
+            
+            local_version = self._get_local_version()
+            
+            # 比较版本
+            if self._is_version_higher(inner_version, local_version):
+                print(f"发现更高版本的内置数据库: {inner_version} (当前: {local_version or '无'})")
+                
+                # 复制内置数据库到本地
+                if self._copy_inner_database():
+                    print("内置数据库已成功覆盖本地配置")
+                    
+                    # 更新版本信息
+                    self._update_version_info_for_inner(inner_version)
+                    
+                    # 重新加载社区配置
+                    self.community_config = self.load_community_config()
+                else:
+                    print("复制内置数据库失败")
+            elif inner_version == local_version:
+                print(f"内置数据库版本已是最新: {inner_version}")
+        
+        except Exception as e:
+            print(f"检查内置版本时出错: {e}")
+
+    def _get_inner_version(self):
+        """获取内置版本号"""
+        try:
+            inner_version_path = Path(INNER_VERSION_PATH)
+            if inner_version_path.exists():
+                with open(inner_version_path, 'r', encoding='utf-8') as f:
+                    return f.read().strip()
+        except Exception as e:
+            print(f"读取内置版本文件失败: {e}")
+        return None
+
+    def _is_version_higher(self, version1, version2):
+        """比较版本号，返回 version1 是否高于 version2"""
+        if not version2:  # 本地版本不存在，内置版本更高
+            return True
+        if not version1:  # 内置版本不存在
+            return False
+        
+        try:
+            # 将版本号转换为可比较的元组
+            def version_tuple(v):
+                return tuple(map(int, v.split('.')))
+            
+            return version_tuple(version1) > version_tuple(version2)
+        except ValueError:
+            # 如果版本号格式不正确，使用字符串比较
+            return version1 > version2
+
+    def _copy_inner_database(self):
+        """复制内置数据库到本地社区配置"""
+        try:
+            inner_db_path = Path(INNER_DB_PATH)
+            if not inner_db_path.exists():
+                print(f"内置数据库文件不存在: {inner_db_path}")
+                return False
+            
+            # 确保目录存在
+            self.community_config_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 复制文件
+            import shutil
+            shutil.copy2(inner_db_path, self.community_config_path)
+            
+            return True
+        except Exception as e:
+            print(f"复制内置数据库失败: {e}")
+            return False
+
+    def _update_version_info_for_inner(self, inner_version):
+        """为内置数据库更新版本信息"""
+        try:
+            with open(self.community_version_path, "w", encoding="utf-8") as f:
+                f.write(f"Updated: {datetime.now().isoformat()}\n")
+                f.write(f"Source: inner_database\n")
+                f.write(f"Version: {inner_version}\n")
+        except Exception as e:
+            print(f"更新版本信息失败: {e}")
 
     def check_community_updates(self):
         """检查并更新社区配置数据库"""
