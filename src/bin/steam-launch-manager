@@ -22,7 +22,14 @@ class SteamLaunchManager:
     def __init__(self, config_path="~/.config/steam-launch-manager.yaml"):
         self.config_path = Path(config_path).expanduser()
         self.config = self.load_config()
-        self.steam_dir = Path.home() / '.local/share/Steam'
+        
+        # 使用配置文件中的steam_dir，如果没有则使用默认值
+        config_steam_dir = self.config.get('global', {}).get('steam_dir')
+        if config_steam_dir:
+            self.steam_dir = Path(config_steam_dir).expanduser()
+        else:
+            self.steam_dir = Path.home() / '.local/share/Steam'
+            
         self.backup_dir = Path(self.config.get('global', {}).get('backup_path', '~/.config/steam-backups')).expanduser()
         
     def load_config(self):
@@ -313,9 +320,107 @@ class SteamLaunchManager:
             self.apply_game_config(app_id, dry_run)
     
     def show_diff(self, app_id):
-        """显示配置差异预览"""
-        print(f"Configuration preview for app {app_id}:")
-        self.apply_game_config(app_id, dry_run=True)
+        """显示配置差异对比"""
+        game_config = self.config.get('games', {}).get(app_id)
+        if not game_config:
+            print(f"No config found for app {app_id}")
+            return False
+        
+        print(f"Configuration diff for app {app_id} ({game_config.get('name', 'Unknown')}):")
+        print("=" * 60)
+        
+        for user_dir in self.get_steam_user_dirs():
+            localconfig_path = user_dir / 'config' / 'localconfig.vdf'
+            
+            if not localconfig_path.exists():
+                continue
+            
+            # 读取当前配置
+            with open(localconfig_path, 'rb') as f:
+                data = vdf.binary_load(f)
+            
+            apps = data.get('UserLocalConfigStore', {}).get('Software', {}).get('Valve', {}).get('Steam', {}).get('Apps', {})
+            current_options = apps.get(app_id, {}).get('LaunchOptions', '')
+            
+            # 计算新配置
+            user_prefix, user_suffix = self.parse_current_params(current_options)
+            
+            # 处理前置参数
+            prefix_config = game_config.get('prefix', {})
+            final_prefix = self.merge_prefix_params(
+                user_prefix,
+                prefix_config,
+                prefix_config.get('user_handling', {}),
+                prefix_config.get('conflicts', {})
+            )
+            
+            # 处理后置参数
+            suffix_config = game_config.get('suffix', {})
+            final_suffix = self.merge_suffix_params(
+                user_suffix,
+                suffix_config,
+                suffix_config.get('user_handling', {}),
+                suffix_config.get('conflicts', {})
+            )
+            
+            # 构建最终参数
+            if final_prefix and final_suffix:
+                new_options = f"{' '.join(final_prefix)} %command% {final_suffix}"
+            elif final_prefix:
+                new_options = f"{' '.join(final_prefix)} %command%"
+            elif final_suffix:
+                new_options = f"%command% {final_suffix}"
+            else:
+                new_options = "%command%"
+            
+            # 显示详细差异
+            print(f"\n📋 Current configuration:")
+            print(f"   {current_options or '(empty)'}")
+            
+            print(f"\n🎯 Proposed configuration:")
+            print(f"   {new_options}")
+            
+            if current_options != new_options:
+                print(f"\n🔄 Changes:")
+                
+                # 分析具体变化
+                if not current_options:
+                    print(f"   + Will add: {new_options}")
+                elif new_options == "%command%":
+                    print(f"   - Will remove all launch options")
+                else:
+                    # 解析当前和新的参数进行详细对比
+                    curr_prefix, curr_suffix = self.parse_current_params(current_options)
+                    new_prefix, new_suffix = self.parse_current_params(new_options)
+                    
+                    if curr_prefix != new_prefix:
+                        print(f"   📦 Environment variables:")
+                        if curr_prefix:
+                            print(f"      - Current: {' '.join(curr_prefix)}")
+                        else:
+                            print(f"      - Current: (none)")
+                        if new_prefix:
+                            print(f"      + Proposed: {' '.join(new_prefix)}")
+                        else:
+                            print(f"      + Proposed: (none)")
+                    
+                    if curr_suffix != new_suffix:
+                        print(f"   🚀 Launch parameters:")
+                        if curr_suffix:
+                            print(f"      - Current: {curr_suffix}")
+                        else:
+                            print(f"      - Current: (none)")
+                        if new_suffix:
+                            print(f"      + Proposed: {new_suffix}")
+                        else:
+                            print(f"      + Proposed: (none)")
+            else:
+                print(f"\n✅ No changes needed - configuration is already up to date")
+            
+            print("\n" + "=" * 60)
+            return True
+        
+        return False
     
     def validate_config(self):
         """验证配置文件"""
