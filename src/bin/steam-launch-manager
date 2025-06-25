@@ -54,6 +54,24 @@ UPDATE_CHECK_INTERVAL_HOURS = 1  # 检查更新间隔（小时）
 NETWORK_TIMEOUT_SECONDS = 10  # 网络请求超时时间（秒）
 USER_AGENT = "steam-launch-manager/1.0"  # 用户代理字符串
 
+# 网络优化配置
+NETWORK_QUICK_TIMEOUT = 2      # 快速网络检测超时
+NETWORK_VERSION_TIMEOUT = 1    # 版本检查超时  
+NETWORK_DOWNLOAD_TIMEOUT = 3   # 快速下载超时
+NETWORK_RETRY_TIMEOUT = 5      # 重试时的超时
+
+# 重试配置
+RETRY_ATTEMPTS = 3             # 最大重试次数
+RETRY_DELAY_BASE = 1           # 基础延迟（秒）
+RETRY_DELAY_MAX = 8            # 最大延迟（秒）
+
+# DNS服务器用于网络检测
+NETWORK_TEST_HOSTS = [
+    ('8.8.8.8', 53),           # Google DNS
+    ('1.1.1.1', 53),           # Cloudflare DNS
+    ('114.114.114.114', 53)    # 国内DNS
+]
+
 # 默认配置路径
 DEFAULT_CONFIG_PATH = "~/.config/steam-launch-manager"
 DEFAULT_STEAM_PATH = "~/.local/share/Steam"
@@ -177,8 +195,19 @@ class SteamLaunchManager:
         # 检查并应用内置版本更新
         self.check_inner_version_update()
 
-        # 检查社区配置更新
-        self.check_community_updates()
+        # 网络检查优化：严格控制时间
+        import time
+        start_time = time.time()
+        try:
+            # 检查社区配置更新（优化版本）
+            self.check_community_updates()
+        except Exception as e:
+            logger.debug(f"Network check failed: {e}")
+        
+        # 记录初始化时间
+        elapsed = time.time() - start_time
+        if elapsed > 3.0:  # 如果超过3秒记录警告
+            logger.warning(f"Network check took {elapsed:.1f}s, consider disabling auto-update")
 
         # 使用配置文件中的steam_dir，如果没有则使用默认值
         config_steam_dir = self.custom_config.get("global", {}).get("steam_dir")
@@ -215,6 +244,13 @@ class SteamLaunchManager:
                 "backup_path": DEFAULT_BACKUP_PATH,
                 "dry_run": False,
                 "auto_update_community_db": True,
+                
+                # 网络配置（可选）
+                "network": {
+                    "quick_timeout_seconds": 2,
+                    "retry_attempts": 3,
+                    "background_update": True
+                }
             },
             "games": {
                 # 用户可以在这里添加自己的游戏配置
@@ -342,60 +378,59 @@ class SteamLaunchManager:
         except Exception as e:
             logger.error(f"更新版本信息失败: {e}")
 
+    def _quick_network_check(self, timeout=2):
+        """快速网络连通性检测"""
+        import socket
+        
+        for host, port in NETWORK_TEST_HOSTS:
+            try:
+                sock = socket.create_connection((host, port), timeout=timeout/len(NETWORK_TEST_HOSTS))
+                sock.close()
+                return True
+            except:
+                continue
+        return False
+
     def check_community_updates(self):
-        """检查并更新社区配置数据库"""
+        """检查并更新社区配置数据库 - 优化版本"""
         auto_update = self.custom_config.get("global", {}).get(
             "auto_update_community_db", True
         )
         if not auto_update:
             return
 
+        # 快速检查阶段（同步，5秒内完成）
+        quick_result = self._quick_update_check()
+        
+        if quick_result == "no_network":
+            logger.debug("Network unavailable, using local cache")
+            return
+        elif quick_result == "up_to_date":
+            logger.debug("Database is up to date")
+            return
+        elif quick_result == "need_download":
+            # 启动异步后台下载
+            self._start_background_download()
+
+    def _quick_update_check(self):
+        """快速更新检查 - 5秒内完成"""
+        # 1. 网络连通性检测 (2秒)
+        if not self._quick_network_check(timeout=NETWORK_QUICK_TIMEOUT):
+            return "no_network"
+        
+        # 2. 快速版本检查 (1秒)  
         try:
-            # 检查是否需要更新
-            if self._should_update_database():
-                logger.info("Checking for community database updates...")
-
-                # 首先尝试版本检查
-                remote_version = self._get_remote_version()
-                local_version = self._get_local_version()
-
-                if remote_version and local_version and remote_version == local_version:
-                    logger.debug(f"Database is up to date (version: {local_version})")
-                    self._update_check_timestamp()  # 更新检查时间戳
-                    return
-
-                if remote_version:
-                    logger.info(
-                        f"New version available: {remote_version} (current: {local_version or 'none'})"
-                    )
-
-                # 下载新数据库
-                success, db_url, content = self._download_database()
-                if success and content:
-                    # 验证下载的内容是否为有效的YAML
-                    try:
-                        yaml.safe_load(content)
-                    except yaml.YAMLError as e:
-                        logger.error(f"Downloaded content is not valid YAML: {e}")
-                        return
-
-                    # 保存新数据库
-                    with open(self.community_config_path, "w", encoding="utf-8") as f:
-                        f.write(content)
-
-                    # 更新版本信息
-                    self._update_version_info(db_url, remote_version)
-
-                    logger.info("Community database updated successfully")
-
-                    # 重新加载社区配置
-                    self.community_config = self.load_community_config()
-                else:
-                    logger.warning("Failed to download community database from all sources")
-                    logger.warning("Using local cache if available")
-
+            remote_version = self._get_remote_version_quick()
+            local_version = self._get_local_version()
+            
+            if remote_version and local_version and remote_version == local_version:
+                self._update_check_timestamp()
+                return "up_to_date"
+            else:
+                return "need_download"
         except Exception as e:
-            logger.error(f"Failed to check community updates: {e}")
+            logger.debug(f"Quick version check failed: {e}")
+            return "no_network"
 
     def _should_update_database(self):
         """检查是否应该更新数据库"""
@@ -426,6 +461,26 @@ class SteamLaunchManager:
             return True
 
         return False
+
+    def _get_remote_version_quick(self):
+        """快速获取远程版本信息"""
+        import urllib.error
+        import urllib.request
+
+        for url in VERSION_CHECK_URLS:
+            try:
+                request = urllib.request.Request(url)
+                request.add_header("User-Agent", USER_AGENT)
+
+                with urllib.request.urlopen(
+                    request, timeout=NETWORK_VERSION_TIMEOUT
+                ) as response:
+                    version = response.read().decode("utf-8").strip()
+                    if version:
+                        return version
+            except (urllib.error.URLError, Exception):
+                continue
+        return None
 
     def _get_remote_version(self):
         """获取远程版本信息"""
@@ -459,6 +514,87 @@ class SteamLaunchManager:
         except Exception:
             pass
         return None
+
+    def _start_background_download(self):
+        """启动后台下载线程"""
+        import threading
+        
+        def background_worker():
+            # 等待一段时间，确保主程序已经启动完成
+            import time
+            time.sleep(30)  # 30秒后开始后台更新
+            
+            logger.info("Starting background database update...")
+            success = self._download_with_retry()
+            if success:
+                logger.info("Background database update completed")
+                # 重新加载配置（为下次使用准备）
+                self.community_config = self.load_community_config()
+            else:
+                logger.debug("Background database update failed")
+        
+        # 创建守护线程
+        thread = threading.Thread(target=background_worker, daemon=True)
+        thread.start()
+        logger.debug("Background update scheduled")
+
+    def _download_with_retry(self):
+        """带重试机制的下载"""
+        import time
+        
+        for attempt in range(RETRY_ATTEMPTS):
+            # 指数退避延迟
+            if attempt > 0:
+                delay = min(RETRY_DELAY_BASE * (2 ** (attempt - 1)), RETRY_DELAY_MAX)
+                logger.debug(f"Retry attempt {attempt}, waiting {delay}s...")
+                time.sleep(delay)
+            
+            # 每次重试前检查网络
+            if not self._quick_network_check(timeout=1):
+                logger.debug(f"Network unavailable on attempt {attempt + 1}")
+                continue
+                
+            # 尝试下载
+            timeout = NETWORK_RETRY_TIMEOUT if attempt > 0 else NETWORK_DOWNLOAD_TIMEOUT
+            success, db_url, content = self._download_database_with_timeout(timeout)
+            
+            if success and content:
+                try:
+                    yaml.safe_load(content)
+                    with open(self.community_config_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    self._update_version_info(db_url)
+                    return True
+                except Exception as e:
+                    logger.error(f"Failed to save downloaded content: {e}")
+                    continue
+        
+        return False
+
+    def _download_database_with_timeout(self, timeout):
+        """带超时控制的数据库下载"""
+        import urllib.error
+        import urllib.request
+        
+        for url in COMMUNITY_DB_URLS:
+            try:
+                logger.debug(f"Downloading from: {url} (timeout: {timeout}s)")
+                request = urllib.request.Request(url)
+                request.add_header("User-Agent", USER_AGENT)
+                
+                with urllib.request.urlopen(request, timeout=timeout) as response:
+                    content = response.read().decode("utf-8")
+                    logger.debug(f"Successfully downloaded from: {url}")
+                    return True, url, content
+                    
+            except urllib.error.URLError as e:
+                logger.debug(f"URL error from {url}: {e}")
+                continue
+            except Exception as e:
+                logger.debug(f"Download error from {url}: {e}")
+                continue
+        
+        return False, None, None
 
     def _download_database(self):
         """尝试从镜像地址下载数据库"""
