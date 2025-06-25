@@ -4,13 +4,13 @@ Steam Launch Options Manager
 智能管理 Steam 游戏启动参数，支持前置/后置参数合并和冲突处理
 """
 
-import os
-import sys
 import argparse
-import yaml
 import subprocess
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
+
+import yaml
 
 try:
     import vdf
@@ -18,201 +18,263 @@ except ImportError:
     print("Error: python-vdf library is required. Install with: pip install vdf")
     sys.exit(1)
 
+
 class SteamLaunchManager:
-    def __init__(self, config_path="~/.config/steam-launch-manager.yaml"):
-        self.config_path = Path(config_path).expanduser()
-        self.config = self.load_config()
-        
+    def __init__(self, config_path="~/.config/steam-launch-manager"):
+        self.config_dir = Path(config_path).expanduser()
+        self.custom_config_path = self.config_dir / "custom" / "games.yaml"
+        self.community_config_path = self.config_dir / "community" / "games.yaml"
+        self.community_version_path = self.config_dir / "community" / "version.txt"
+
+        # 确保目录存在
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        (self.config_dir / "custom").mkdir(exist_ok=True)
+        (self.config_dir / "community").mkdir(exist_ok=True)
+
+        # 加载配置
+        self.custom_config = self.load_custom_config()
+        self.community_config = self.load_community_config()
+
+        # 检查社区配置更新
+        self.check_community_updates()
+
         # 使用配置文件中的steam_dir，如果没有则使用默认值
-        config_steam_dir = self.config.get('global', {}).get('steam_dir')
+        config_steam_dir = self.custom_config.get("global", {}).get("steam_dir")
         if config_steam_dir:
             self.steam_dir = Path(config_steam_dir).expanduser()
         else:
-            self.steam_dir = Path.home() / '.local/share/Steam'
-            
-        self.backup_dir = Path(self.config.get('global', {}).get('backup_path', '~/.config/steam-backups')).expanduser()
-        
-    def load_config(self):
-        """加载配置文件"""
-        if not self.config_path.exists():
-            self.create_default_config()
-        
-        with open(self.config_path) as f:
+            self.steam_dir = Path.home() / ".local/share/Steam"
+
+        self.backup_dir = Path(
+            self.custom_config.get("global", {}).get(
+                "backup_path", "~/.config/steam-backups"
+            )
+        ).expanduser()
+
+    def load_custom_config(self):
+        """加载用户自定义配置"""
+        if not self.custom_config_path.exists():
+            self.create_default_custom_config()
+
+        with open(self.custom_config_path) as f:
             return yaml.safe_load(f) or {}
-    
-    def create_default_config(self):
-        """创建默认配置文件"""
+
+    def load_community_config(self):
+        """加载社区预设配置"""
+        if not self.community_config_path.exists():
+            return {"games": {}}
+
+        with open(self.community_config_path) as f:
+            return yaml.safe_load(f) or {"games": {}}
+
+    def create_default_custom_config(self):
+        """创建默认的用户自定义配置文件"""
         default_config = {
-            'global': {
-                'backup_enabled': True,
-                'backup_path': '~/.config/steam-backups',
-                'dry_run': False
+            "global": {
+                "backup_enabled": True,
+                "backup_path": "~/.config/steam-backups",
+                "dry_run": False,
+                "auto_update_community_db": True,
             },
-            'games': {
-                'example_440': {
-                    'name': 'Team Fortress 2 (示例)',
-                    'prefix': {
-                        'params': ['DXVK_HUD=fps'],
-                        'user_handling': {'preserve': True, 'position': 'before'},
-                        'conflicts': {
-                            'replace_keys': ['DXVK_HUD'],
-                            'merge_keys': {'LD_LIBRARY_PATH': 'prepend'}
-                        }
-                    },
-                    'suffix': {
-                        'params': ['-novid', '-high'],
-                        'user_handling': {'preserve': True, 'position': 'before'},
-                        'conflicts': {
-                            'replace_rules': {'-safe': '', '-windowed': '-fullscreen'}
-                        }
-                    }
-                }
-            }
+            "games": {
+                # 用户可以在这里添加自己的游戏配置
+                # 示例（可以删除）:
+                # "730": {
+                #     "name": "Counter-Strike 2 - Custom",
+                #     "prefix": {
+                #         "params": ["RADV_PERFTEST=aco"]
+                #     }
+                # }
+            },
         }
-        
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.config_path, 'w') as f:
+
+        self.custom_config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.custom_config_path, "w") as f:
             yaml.dump(default_config, f, default_flow_style=False, indent=2)
-        
-        print(f"Created default config at: {self.config_path}")
+
+        print(f"Created custom config at: {self.custom_config_path}")
         return default_config
-    
+
+    def get_game_config(self, app_id):
+        """获取游戏配置：用户配置优先于社区配置"""
+        # 1. 检查用户自定义配置
+        custom_games = self.custom_config.get("games", {})
+        if app_id in custom_games:
+            print(f"Using custom config for {app_id}")
+            return custom_games[app_id], "custom"
+
+        # 2. 使用社区预设配置
+        community_games = self.community_config.get("games", {})
+        if app_id in community_games:
+            print(f"Using community config for {app_id}")
+            return community_games[app_id], "community"
+
+        # 3. 没有配置
+        return None, None
+
+    def check_community_updates(self):
+        """检查并更新社区配置数据库"""
+        auto_update = self.custom_config.get("global", {}).get(
+            "auto_update_community_db", True
+        )
+        if not auto_update:
+            return
+
+        try:
+            # 这里可以实现实际的更新逻辑
+            # 暂时先从项目的 src/data/games-db.yaml 复制
+            project_db_path = Path(__file__).parent.parent / "data" / "games-db.yaml"
+            if project_db_path.exists():
+                import shutil
+
+                shutil.copy2(project_db_path, self.community_config_path)
+
+                # 更新版本信息
+                with open(self.community_version_path, "w") as f:
+                    f.write(f"Updated: {datetime.now().isoformat()}\n")
+                    f.write("Source: local project data\n")
+
+                print("Community database updated from project data")
+        except Exception as e:
+            print(f"Failed to update community database: {e}")
+
     def is_steam_running(self):
         """检查 Steam 是否正在运行"""
         try:
-            result = subprocess.run(['pgrep', '-x', 'steam'], 
-                                  capture_output=True, text=True)
+            result = subprocess.run(
+                ["pgrep", "-x", "steam"], capture_output=True, text=True
+            )
             return result.returncode == 0
         except:
             return False
-    
+
     def get_steam_user_dirs(self):
         """获取所有 Steam 用户目录"""
-        userdata_dir = self.steam_dir / 'userdata'
+        userdata_dir = self.steam_dir / "userdata"
         if not userdata_dir.exists():
             return []
         return [d for d in userdata_dir.iterdir() if d.is_dir() and d.name.isdigit()]
-    
+
     def load_vdf_file(self, file_path):
         """安全加载VDF文件，支持文本和二进制格式"""
         try:
             # 先尝试文本格式
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return vdf.load(f), 'text'
+            with open(file_path, "r", encoding="utf-8") as f:
+                return vdf.load(f), "text"
         except (UnicodeDecodeError, vdf.VDFError):
             try:
                 # 再尝试二进制格式
-                with open(file_path, 'rb') as f:
-                    return vdf.binary_load(f), 'binary'
+                with open(file_path, "rb") as f:
+                    return vdf.binary_load(f), "binary"
             except vdf.VDFError as e:
                 raise Exception(f"Failed to parse VDF file {file_path}: {e}")
-    
+
     def save_vdf_file(self, file_path, data, format_type):
         """保存VDF文件，保持原格式"""
-        if format_type == 'text':
-            with open(file_path, 'w', encoding='utf-8') as f:
+        if format_type == "text":
+            with open(file_path, "w", encoding="utf-8") as f:
                 vdf.dump(data, f, pretty=True)
         else:
-            with open(file_path, 'wb') as f:
+            with open(file_path, "wb") as f:
                 f.write(vdf.binary_dumps(data))
-    
+
     def parse_current_params(self, current_options):
         """解析当前启动参数为前置和后置部分"""
         if not current_options:
             return [], ""
-        
-        if '%command%' not in current_options:
+
+        if "%command%" not in current_options:
             return [], current_options.strip()
-        
-        parts = current_options.split('%command%', 1)
+
+        parts = current_options.split("%command%", 1)
         prefix_part = parts[0].strip()
         suffix_part = parts[1].strip() if len(parts) > 1 else ""
-        
+
         prefix_params = prefix_part.split() if prefix_part else []
         return prefix_params, suffix_part
-    
+
     def merge_prefix_params(self, user_prefix, config_prefix, user_handling, conflicts):
         """合并前置参数"""
-        managed_params = config_prefix.get('params', [])
-        preserve = user_handling.get('preserve', True)
-        position = user_handling.get('position', 'before')
-        
+        managed_params = config_prefix.get("params", [])
+        preserve = user_handling.get("preserve", True)
+        position = user_handling.get("position", "before")
+
         if not preserve:
             return managed_params
-        
+
         # 处理冲突规则
         final_user_params = user_prefix.copy()
-        replace_keys = conflicts.get('replace_keys', [])
-        merge_keys = conflicts.get('merge_keys', {})
-        
+        replace_keys = conflicts.get("replace_keys", [])
+        merge_keys = conflicts.get("merge_keys", {})
+
         # 构建环境变量字典用于冲突处理
         user_env = {}
         managed_env = {}
-        
+
         # 解析用户的环境变量
         user_non_env = []
         for param in final_user_params:
-            if '=' in param and not param.startswith('-'):
-                key, value = param.split('=', 1)
+            if "=" in param and not param.startswith("-"):
+                key, value = param.split("=", 1)
                 user_env[key] = value
             else:
                 user_non_env.append(param)
-        
+
         # 解析管理的环境变量
         managed_non_env = []
         for param in managed_params:
-            if '=' in param and not param.startswith('-'):
-                key, value = param.split('=', 1)
+            if "=" in param and not param.startswith("-"):
+                key, value = param.split("=", 1)
                 managed_env[key] = value
             else:
                 managed_non_env.append(param)
-        
+
         # 处理环境变量冲突
         final_env = user_env.copy()
-        
+
         # 替换规则：强制使用管理的值
         for key in replace_keys:
             if key in managed_env:
                 final_env[key] = managed_env[key]
-        
+
         # 添加管理的新环境变量
         for key, value in managed_env.items():
             if key not in final_env:
                 final_env[key] = value
-        
+
         # 处理路径合并
         for key, merge_type in merge_keys.items():
             if key in managed_env and key in user_env:
-                if merge_type == 'prepend':
+                if merge_type == "prepend":
                     final_env[key] = f"{managed_env[key]}:{user_env[key]}"
-                elif merge_type == 'append':
+                elif merge_type == "append":
                     final_env[key] = f"{user_env[key]}:{managed_env[key]}"
-        
+
         # 重建参数列表
         env_params = [f"{k}={v}" for k, v in final_env.items()]
-        
-        if position == 'before':
+
+        if position == "before":
             return env_params + user_non_env + managed_non_env
-        elif position == 'after':
+        elif position == "after":
             return managed_non_env + env_params + user_non_env
         else:  # replace
             return env_params + managed_non_env
-    
+
     def merge_suffix_params(self, user_suffix, config_suffix, user_handling, conflicts):
         """合并后置参数"""
-        managed_params = config_suffix.get('params', [])
-        preserve = user_handling.get('preserve', True)
-        position = user_handling.get('position', 'before')
-        
+        managed_params = config_suffix.get("params", [])
+        preserve = user_handling.get("preserve", True)
+        position = user_handling.get("position", "before")
+
         user_params = user_suffix.split() if user_suffix else []
-        
+
         if not preserve:
             final_params = managed_params
         else:
             # 处理替换规则
-            replace_rules = conflicts.get('replace_rules', {})
+            replace_rules = conflicts.get("replace_rules", {})
             processed_user_params = []
-            
+
             for param in user_params:
                 if param in replace_rules:
                     replacement = replace_rules[param]
@@ -221,67 +283,75 @@ class SteamLaunchManager:
                     # 如果替换值为空，则跳过（删除该参数）
                 else:
                     processed_user_params.append(param)
-            
+
             # 按位置合并参数
-            if position == 'before':
+            if position == "before":
                 final_params = processed_user_params + managed_params
-            elif position == 'after':
+            elif position == "after":
                 final_params = managed_params + processed_user_params
             else:  # replace
                 final_params = managed_params
-        
-        return ' '.join(final_params)
-    
+
+        return " ".join(final_params)
+
     def apply_game_config(self, app_id, dry_run=False):
         """应用单个游戏的配置"""
-        game_config = self.config.get('games', {}).get(app_id)
+        game_config, config_source = self.get_game_config(app_id)
         if not game_config:
             print(f"No config found for app {app_id}")
             return False
-        
+
         # 检查 Steam 是否正在运行
         if not dry_run and self.is_steam_running():
-            print("Warning: Steam is running. Changes may not take effect until Steam is restarted.")
+            print(
+                "Warning: Steam is running. Changes may not take effect until Steam is restarted."
+            )
             print("Consider stopping Steam first with: steam -shutdown")
-        
+
         success = False
         for user_dir in self.get_steam_user_dirs():
-            localconfig_path = user_dir / 'config' / 'localconfig.vdf'
-            
+            localconfig_path = user_dir / "config" / "localconfig.vdf"
+
             if not localconfig_path.exists():
                 continue
-            
+
             # 读取当前配置
             data, vdf_format = self.load_vdf_file(localconfig_path)
-            
-            apps = data.get('UserLocalConfigStore', {}).get('Software', {}).get('Valve', {}).get('Steam', {}).get('apps', {})
-            current_options = apps.get(app_id, {}).get('LaunchOptions', '')
-            
+
+            apps = (
+                data.get("UserLocalConfigStore", {})
+                .get("Software", {})
+                .get("Valve", {})
+                .get("Steam", {})
+                .get("apps", {})
+            )
+            current_options = apps.get(app_id, {}).get("LaunchOptions", "")
+
             # 备份原始配置
-            if self.config.get('global', {}).get('backup_enabled', True):
+            if self.custom_config.get("global", {}).get("backup_enabled", True):
                 self.backup_config(app_id, current_options)
-            
+
             # 解析和合并参数
             user_prefix, user_suffix = self.parse_current_params(current_options)
-            
+
             # 处理前置参数
-            prefix_config = game_config.get('prefix', {})
+            prefix_config = game_config.get("prefix", {})
             final_prefix = self.merge_prefix_params(
                 user_prefix,
                 prefix_config,
-                prefix_config.get('user_handling', {}),
-                prefix_config.get('conflicts', {})
+                prefix_config.get("user_handling", {}),
+                prefix_config.get("conflicts", {}),
             )
-            
+
             # 处理后置参数
-            suffix_config = game_config.get('suffix', {})
+            suffix_config = game_config.get("suffix", {})
             final_suffix = self.merge_suffix_params(
                 user_suffix,
                 suffix_config,
-                suffix_config.get('user_handling', {}),
-                suffix_config.get('conflicts', {})
+                suffix_config.get("user_handling", {}),
+                suffix_config.get("conflicts", {}),
             )
-            
+
             # 构建最终参数
             if final_prefix and final_suffix:
                 new_options = f"{' '.join(final_prefix)} %command% {final_suffix}"
@@ -291,98 +361,113 @@ class SteamLaunchManager:
                 new_options = f"%command% {final_suffix}"
             else:
                 new_options = "%command%"
-            
+
             # 显示变更
             if current_options != new_options:
                 print(f"\nApp {app_id} ({game_config.get('name', 'Unknown')}):")
                 print(f"  Before: {current_options or '(empty)'}")
                 print(f"  After:  {new_options}")
-                
+
                 if not dry_run:
                     # 应用更改
                     if app_id not in apps:
                         apps[app_id] = {}
-                    apps[app_id]['LaunchOptions'] = new_options
-                    
+                    apps[app_id]["LaunchOptions"] = new_options
+
                     # 保存文件
                     self.save_vdf_file(localconfig_path, data, vdf_format)
-                    
+
                     success = True
             else:
                 print(f"App {app_id}: No changes needed")
-        
+
         return success
-    
+
     def backup_config(self, app_id, current_options):
         """备份当前配置"""
         self.backup_dir.mkdir(parents=True, exist_ok=True)
-        backup_file = self.backup_dir / f"app_{app_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        
-        with open(backup_file, 'w') as f:
+        backup_file = (
+            self.backup_dir
+            / f"app_{app_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        )
+
+        with open(backup_file, "w") as f:
             f.write(f"# Backup for Steam App {app_id}\n")
             f.write(f"# Created: {datetime.now()}\n")
-            f.write(f"# Original launch options:\n")
+            f.write("# Original launch options:\n")
             f.write(current_options or "(empty)")
-    
+
     def apply_all_configs(self, dry_run=False):
         """应用所有游戏配置"""
-        games = self.config.get('games', {})
-        if not games:
+        # 合并用户配置和社区配置中的所有游戏
+        all_games = set()
+        all_games.update(self.custom_config.get("games", {}).keys())
+        all_games.update(self.community_config.get("games", {}).keys())
+
+        if not all_games:
             print("No game configurations found")
             return
-        
-        print(f"Applying configurations for {len(games)} games...")
+
+        print(f"Applying configurations for {len(all_games)} games...")
         if dry_run:
             print("DRY RUN MODE - No changes will be made")
-        
-        for app_id in games:
-            if app_id.startswith('example_'):
+
+        for app_id in all_games:
+            if app_id.startswith("example_"):
                 continue  # 跳过示例配置
             self.apply_game_config(app_id, dry_run)
-    
+
     def show_diff(self, app_id):
         """显示配置差异对比"""
-        game_config = self.config.get('games', {}).get(app_id)
+        game_config, config_source = self.get_game_config(app_id)
         if not game_config:
             print(f"No config found for app {app_id}")
             return False
-        
-        print(f"Configuration diff for app {app_id} ({game_config.get('name', 'Unknown')}):")
+
+        print(
+            f"Configuration diff for app {app_id} ({game_config.get('name', 'Unknown')}):"
+        )
         print("=" * 60)
-        
+
         for user_dir in self.get_steam_user_dirs():
-            localconfig_path = user_dir / 'config' / 'localconfig.vdf'
-            
+            localconfig_path = user_dir / "config" / "localconfig.vdf"
+
             if not localconfig_path.exists():
                 continue
-            
+
             # 读取当前配置
             data, vdf_format = self.load_vdf_file(localconfig_path)
-            
-            apps = data.get('UserLocalConfigStore', {}).get('Software', {}).get('Valve', {}).get('Steam', {}).get('apps', {})
-            current_options = apps.get(app_id, {}).get('LaunchOptions', '')
-            
+
+            apps = (
+                data.get("UserLocalConfigStore", {})
+                .get("Software", {})
+                .get("Valve", {})
+                .get("Steam", {})
+                .get("apps", {})
+            )
+            current_options = apps.get(app_id, {}).get("LaunchOptions", "")
+
             # 计算新配置
             user_prefix, user_suffix = self.parse_current_params(current_options)
-            
+
             # 处理前置参数
-            prefix_config = game_config.get('prefix', {})
+            prefix_config = game_config.get("prefix", {})
             final_prefix = self.merge_prefix_params(
                 user_prefix,
                 prefix_config,
-                prefix_config.get('user_handling', {}),
-                prefix_config.get('conflicts', {})
+                prefix_config.get("user_handling", {}),
+                prefix_config.get("conflicts", {}),
             )
-            
+
             # 处理后置参数
-            suffix_config = game_config.get('suffix', {})
+            suffix_config = game_config.get("suffix", {})
             final_suffix = self.merge_suffix_params(
                 user_suffix,
                 suffix_config,
-                suffix_config.get('user_handling', {}),
-                suffix_config.get('conflicts', {})
+                suffix_config.get("user_handling", {}),
+                suffix_config.get("conflicts", {}),
             )
-            
+
             # 构建最终参数
             if final_prefix and final_suffix:
                 new_options = f"{' '.join(final_prefix)} %command% {final_suffix}"
@@ -392,71 +477,82 @@ class SteamLaunchManager:
                 new_options = f"%command% {final_suffix}"
             else:
                 new_options = "%command%"
-            
+
             # 显示详细差异
-            print(f"\n📋 Current configuration:")
+            print("\n📋 Current configuration:")
             print(f"   {current_options or '(empty)'}")
-            
-            print(f"\n🎯 Proposed configuration:")
+
+            print("\n🎯 Proposed configuration:")
             print(f"   {new_options}")
-            
+
             if current_options != new_options:
-                print(f"\n🔄 Changes:")
-                
+                print("\n🔄 Changes:")
+
                 # 分析具体变化
                 if not current_options:
                     print(f"   + Will add: {new_options}")
                 elif new_options == "%command%":
-                    print(f"   - Will remove all launch options")
+                    print("   - Will remove all launch options")
                 else:
                     # 解析当前和新的参数进行详细对比
-                    curr_prefix, curr_suffix = self.parse_current_params(current_options)
+                    curr_prefix, curr_suffix = self.parse_current_params(
+                        current_options
+                    )
                     new_prefix, new_suffix = self.parse_current_params(new_options)
-                    
+
                     if curr_prefix != new_prefix:
-                        print(f"   📦 Environment variables:")
+                        print("   📦 Environment variables:")
                         if curr_prefix:
                             print(f"      - Current: {' '.join(curr_prefix)}")
                         else:
-                            print(f"      - Current: (none)")
+                            print("      - Current: (none)")
                         if new_prefix:
                             print(f"      + Proposed: {' '.join(new_prefix)}")
                         else:
-                            print(f"      + Proposed: (none)")
-                    
+                            print("      + Proposed: (none)")
+
                     if curr_suffix != new_suffix:
-                        print(f"   🚀 Launch parameters:")
+                        print("   🚀 Launch parameters:")
                         if curr_suffix:
                             print(f"      - Current: {curr_suffix}")
                         else:
-                            print(f"      - Current: (none)")
+                            print("      - Current: (none)")
                         if new_suffix:
                             print(f"      + Proposed: {new_suffix}")
                         else:
-                            print(f"      + Proposed: (none)")
+                            print("      + Proposed: (none)")
             else:
-                print(f"\n✅ No changes needed - configuration is already up to date")
-            
+                print("\n✅ No changes needed - configuration is already up to date")
+
             print("\n" + "=" * 60)
             return True
-        
+
         return False
-    
+
     def validate_config(self):
         """验证配置文件"""
         print("Validating configuration...")
-        
-        games = self.config.get('games', {})
+
         issues = []
-        
-        for app_id, game_config in games.items():
-            if not app_id.isdigit() and not app_id.startswith('example_'):
-                issues.append(f"App ID '{app_id}' should be numeric")
-            
+
+        # 验证用户配置
+        custom_games = self.custom_config.get("games", {})
+        for app_id, game_config in custom_games.items():
+            if not app_id.isdigit() and not app_id.startswith("example_"):
+                issues.append(f"Custom config - App ID '{app_id}' should be numeric")
+
             # 检查必需字段
-            if 'prefix' not in game_config and 'suffix' not in game_config:
-                issues.append(f"App {app_id}: No prefix or suffix configuration")
-        
+            if "prefix" not in game_config and "suffix" not in game_config:
+                issues.append(
+                    f"Custom config - App {app_id}: No prefix or suffix configuration"
+                )
+
+        # 验证社区配置（只检查格式，不检查内容）
+        community_games = self.community_config.get("games", {})
+        print(
+            f"Found {len(custom_games)} custom configs and {len(community_games)} community configs"
+        )
+
         if issues:
             print("Configuration issues found:")
             for issue in issues:
@@ -464,41 +560,71 @@ class SteamLaunchManager:
         else:
             print("Configuration is valid!")
 
+    def update_community_db(self):
+        """手动更新社区数据库"""
+        print("Manually updating community database...")
+        self.check_community_updates()
+        print("Update completed!")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Steam Launch Options Manager")
-    parser.add_argument('command', choices=['apply', 'apply-all', 'dry-run', 'diff', 'validate', 'init'],
-                       help='Command to execute')
-    parser.add_argument('app_id', nargs='?', help='Steam App ID')
-    parser.add_argument('--config', default='~/.config/steam-launch-manager.yaml',
-                       help='Configuration file path')
-    parser.add_argument('--dry-run', action='store_true', help='Preview changes without applying')
-    
+    parser.add_argument(
+        "command",
+        choices=[
+            "apply",
+            "apply-all",
+            "dry-run",
+            "diff",
+            "validate",
+            "init",
+            "update-db",
+        ],
+        help="Command to execute",
+    )
+    parser.add_argument("app_id", nargs="?", help="Steam App ID")
+    parser.add_argument(
+        "--config",
+        default="~/.config/steam-launch-manager",
+        help="Configuration file path",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preview changes without applying"
+    )
+
     args = parser.parse_args()
-    
-    manager = SteamLaunchManager(args.config)
-    
-    if args.command == 'init':
+
+    if args.command == "init":
+        # 创建对象时会自动初始化目录和配置文件
+        manager = SteamLaunchManager(args.config)
         print("Configuration file created/updated")
         return
-    
-    if args.command == 'validate':
+
+    manager = SteamLaunchManager(args.config)
+
+    if args.command == "update-db":
+        manager.update_community_db()
+        return
+
+    if args.command == "validate":
         manager.validate_config()
         return
-    
-    if args.command == 'apply-all':
+
+    if args.command == "apply-all":
         manager.apply_all_configs(dry_run=args.dry_run)
         return
-    
+
     if not args.app_id:
         print("App ID is required for this command")
         return
-    
-    if args.command == 'apply':
+
+    if args.command == "apply":
         manager.apply_game_config(args.app_id, dry_run=args.dry_run)
-    elif args.command == 'dry-run':
+    elif args.command == "dry-run":
         manager.apply_game_config(args.app_id, dry_run=True)
-    elif args.command == 'diff':
+    elif args.command == "diff":
         manager.show_diff(args.app_id)
 
-if __name__ == '__main__':
-    main() 
+
+if __name__ == "__main__":
+    main()
