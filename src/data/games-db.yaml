@@ -1,26 +1,45 @@
-
-
 global:
   backup_enabled: true
   backup_path: "~/.config/steam-backups"
   dry_run: false
 
 games:
-  "3489700":
-    # 剑星
-    name: "Stellar Blade"
-    
+  # ========== ChimeraOS 社区数据库完整导入 ==========
+  
+  "285820":
+    # Action Henk - 修复库路径问题
+    name: "Action Henk"
     prefix:
       params:
-        - "SteamDeck=0"
+        - "LD_LIBRARY_PATH="
       user_handling:
         preserve: true
         position: "before"
-  
+        
+  "331870":
+    # AER Memories of Old - 修复原生版本黑屏问题  
+    name: "AER Memories of Old"
+    suffix:
+      params:
+        - "-screen-fullscreen"
+        - "0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "108710":
+    # Alan Wake - 音频修复
+    name: "Alan Wake"
+    prefix:
+      params:
+        - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
+      user_handling:
+        preserve: true
+        position: "before"
+        
   "1086940":
-    # 博德之门3
+    # 博德之门3 - SteamDeck 兼容性 + 跳过启动器
     name: "Baldur's Gate 3"
-    
     prefix:
       params:
         - "SteamDeck=0"
@@ -30,6 +49,313 @@ games:
     suffix:
       params:
         - "--skip-launcher"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "1903340":
+    # Clair Obscur: Expedition 33 - SteamDeck 兼容性
+    name: "Clair Obscur: Expedition 33"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "243200":
+    # The Dark Eye: Memoria - 音频驱动修复
+    name: "The Dark Eye: Memoria"
+    prefix:
+      params:
+        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done;'
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "312530":
+    # Duck Game - Linux 模式
+    name: "Duck Game"
+    suffix:
+      params:
+        - "-linux"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "377160":
+    # Fallout 4 - SteamDeck 兼容性
+    name: "Fallout 4"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "960910":
+    # Heavy Rain - 音频修复
+    name: "Heavy Rain"
+    prefix:
+      params:
+        - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "1048290":
+    # Heavy Rain Demo - 音频修复
+    name: "Heavy Rain Demo"
+    prefix:
+      params:
+        - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "1659040":
+    # HITMAN 3 - SteamDeck 兼容性
+    name: "HITMAN 3"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "1210550":
+    # Hohokum - SteamDeck 兼容性
+    name: "Hohokum"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "2561580":
+    # Horizon Zero Dawn Remastered - 显示链接QR码
+    name: "Horizon Zero Dawn Remastered"
+    suffix:
+      params:
+        - "-showlinkingqr"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "205950":
+    # Jet Set Radio - 可执行文件重定向
+    name: "Jet Set Radio"
+    prefix:
+      params:
+        - 'eval $(echo "%command%" | sed "s/jsrsetup.exe/jetsetradio.exe/")'
+      user_handling:
+        preserve: true
+        position: "replace"
+        
+  "899770":
+    # Last Epoch - SteamDeck 兼容性
+    name: "Last Epoch"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "1888930":
+    # The Last of Us Part 1 - SteamDeck 兼容性
+    name: "The Last of Us Part 1"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "640590":
+    # The LEGO NINJAGO Movie Video Game - 音频修复
+    name: "The LEGO NINJAGO Movie Video Game"
+    prefix:
+      params:
+        - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "424840":
+    # Little Nightmares - 单线程模式
+    name: "Little Nightmares"
+    suffix:
+      params:
+        - "-onethread"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "1971870":
+    # Mortal Kombat 1 - SteamDeck 兼容性
+    name: "Mortal Kombat 1"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "105000":
+    # A New Beginning - Final Cut - 音频驱动修复
+    name: "A New Beginning - Final Cut"
+    prefix:
+      params:
+        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "winmm" /f; break; fi; done;'
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "404540":
+    # Nex Machina - 音频延迟修复
+    name: "Nex Machina"
+    prefix:
+      params:
+        - "PULSE_LATENCY_MSEC=60"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "230820":
+    # The Night of the Rabbit - 音频驱动修复
+    name: "The Night of the Rabbit"
+    prefix:
+      params:
+        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done;'
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "607080":
+    # Psychonauts 2 - 强制DX11
+    name: "Psychonauts 2"
+    suffix:
+      params:
+        - "-force"
+        - "-dx11"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "971620":
+    # Puyo Puyo Champions - 音频修复
+    name: "Puyo Puyo Champions"
+    prefix:
+      params:
+        - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "1599660":
+    # Sackboy A Big Adventure - SteamDeck 兼容性 + DX11
+    name: "Sackboy A Big Adventure"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+    suffix:
+      params:
+        - "-dx11"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "282210":
+    # Sid Meier's Starships - 可执行文件重定向
+    name: "Sid Meier's Starships"
+    prefix:
+      params:
+        - 'eval $(echo "%command%" | sed "s/Starships64.exe/Starships.exe/")'
+      user_handling:
+        preserve: true
+        position: "replace"
+        
+  "969990":
+    # SpongeBob SquarePants: Battle for Bikini Bottom - Rehydrated - 音频延迟修复
+    name: "SpongeBob SquarePants: Battle for Bikini Bottom - Rehydrated"
+    prefix:
+      params:
+        - "PULSE_LATENCY_MSEC=30"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "3489700":
+    # 剑星 - SteamDeck 兼容性
+    name: "Stellar Blade"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "312670":
+    # Strange Brigade - Vulkan 渲染器
+    name: "Strange Brigade"
+    prefix:
+      params:
+        - 'eval $(echo "%command%" | sed "s/StrangeBrigade.exe/StrangeBrigade_Vulkan.exe/")'
+      user_handling:
+        preserve: true
+        position: "replace"
+        
+  "607050":
+    # Wargroove - 跳过介绍
+    name: "Wargroove"
+    suffix:
+      params:
+        - "--skip-intro"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "327030":
+    # Worms W.M.D - 库路径清理
+    name: "Worms W.M.D"
+    prefix:
+      params:
+        - "LD_LIBRARY_PATH="
+      user_handling:
+        preserve: true
+        position: "before"
+
+  # ========== 性能优化示例 ==========
+  
+  "example_performance":
+    name: "性能优化示例 (可删除)"
+    prefix:
+      params:
+        - "DXVK_HUD=fps"
+        - "RADV_PERFTEST=aco"
+        - "MESA_GL_VERSION_OVERRIDE=4.6"
+      user_handling:
+        preserve: true
+        position: "before"
+        
+  "example_proton_config":
+    name: "Proton 配置示例 (可删除)"
+    prefix:
+      params:
+        - "PROTON_USE_WINED3D=1"
+        - "PROTON_NO_ESYNC=1"
+      user_handling:
+        preserve: true
+        position: "before"
+    suffix:
+      params:
+        - "-windowed"
+        - "-novid"
       user_handling:
         preserve: true
         position: "before"

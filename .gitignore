@@ -11,3 +11,4 @@ pkgbuild/*.pkg.tar.zst
 pkgbuild/src/
 pkgbuild/pkg/
 pkgbuild/steam-launch-manager/
+/gamedb.yaml
