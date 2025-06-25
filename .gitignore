@@ -5,3 +5,9 @@ venv/
 .pybuild
 *.egg-info
 *.code-workspace
+.pytest_cache/
+pkgbuild/*.SRCINFO
+pkgbuild/*.pkg.tar.zst
+pkgbuild/src/
+pkgbuild/pkg/
+pkgbuild/steam-launch-manager/
