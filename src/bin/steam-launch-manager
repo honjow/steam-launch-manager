@@ -22,6 +22,9 @@ except ImportError:
 # 配置参数 - Configuration Parameters
 # =============================================================================
 
+# Steam 启动参数占位符
+COMMAND_PLACEHOLDER = "%command%"
+
 # 社区数据库更新配置
 COMMUNITY_DB_URLS = [
     "https://gitee.com/honjow/steam-launch-manager/raw/master/src/data/games-db.yaml",  # 镜像地址
@@ -358,14 +361,27 @@ class SteamLaunchManager:
                 f.write(vdf.binary_dumps(data))
 
     def parse_current_params(self, current_options):
-        """解析当前启动参数为前置和后置部分"""
+        """解析当前启动参数为前置和后置部分
+        
+        支持大小写不敏感的 %command% 占位符检测
+        Steam 中可能出现 %command%、%COMMAND% 等不同大小写形式
+        """
         if not current_options:
             return [], ""
 
-        if "%command%" not in current_options:
+        # 查找 %command% 占位符（大小写不敏感）
+        # Steam 可能使用不同大小写的 %command%，如 %COMMAND%
+        import re
+        command_pattern = re.compile(r'%command%', re.IGNORECASE)
+        match = command_pattern.search(current_options)
+        
+        if not match:
+            # 如果没有找到 %command% 占位符，将整个字符串视为后置参数
             return [], current_options.strip()
 
-        parts = current_options.split("%command%", 1)
+        # 使用找到的实际占位符进行分割
+        command_placeholder = match.group()
+        parts = current_options.split(command_placeholder, 1)
         prefix_part = parts[0].strip()
         suffix_part = parts[1].strip() if len(parts) > 1 else ""
 
@@ -533,13 +549,13 @@ class SteamLaunchManager:
 
             # 构建最终参数
             if final_prefix and final_suffix:
-                new_options = f"{' '.join(final_prefix)} %command% {final_suffix}"
+                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER} {final_suffix}"
             elif final_prefix:
-                new_options = f"{' '.join(final_prefix)} %command%"
+                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER}"
             elif final_suffix:
-                new_options = f"%command% {final_suffix}"
+                new_options = f"{COMMAND_PLACEHOLDER} {final_suffix}"
             else:
-                new_options = "%command%"
+                new_options = COMMAND_PLACEHOLDER
 
             # 显示变更
             if current_options != new_options:
@@ -649,13 +665,13 @@ class SteamLaunchManager:
 
             # 构建最终参数
             if final_prefix and final_suffix:
-                new_options = f"{' '.join(final_prefix)} %command% {final_suffix}"
+                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER} {final_suffix}"
             elif final_prefix:
-                new_options = f"{' '.join(final_prefix)} %command%"
+                new_options = f"{' '.join(final_prefix)} {COMMAND_PLACEHOLDER}"
             elif final_suffix:
-                new_options = f"%command% {final_suffix}"
+                new_options = f"{COMMAND_PLACEHOLDER} {final_suffix}"
             else:
-                new_options = "%command%"
+                new_options = COMMAND_PLACEHOLDER
 
             # 显示详细差异
             print("\n📋 Current configuration:")
@@ -670,7 +686,7 @@ class SteamLaunchManager:
                 # 分析具体变化
                 if not current_options:
                     print(f"   + Will add: {new_options}")
-                elif new_options == "%command%":
+                elif new_options == COMMAND_PLACEHOLDER:
                     print("   - Will remove all launch options")
                 else:
                     # 解析当前和新的参数进行详细对比
