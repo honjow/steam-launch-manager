@@ -169,7 +169,7 @@ class SteamLaunchManager:
 
                 # 下载新数据库
                 success, db_url, content = self._download_database()
-                if success:
+                if success and content:
                     # 验证下载的内容是否为有效的YAML
                     try:
                         yaml.safe_load(content)
@@ -343,12 +343,12 @@ class SteamLaunchManager:
             # 先尝试文本格式
             with open(file_path, "r", encoding="utf-8") as f:
                 return vdf.load(f), "text"
-        except (UnicodeDecodeError, vdf.VDFError):
+        except (UnicodeDecodeError, Exception):
             try:
                 # 再尝试二进制格式
                 with open(file_path, "rb") as f:
                     return vdf.binary_load(f), "binary"
-            except vdf.VDFError as e:
+            except Exception as e:
                 raise Exception(f"Failed to parse VDF file {file_path}: {e}")
 
     def save_vdf_file(self, file_path, data, format_type):
