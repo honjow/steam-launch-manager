@@ -93,6 +93,29 @@ class SteamLaunchManager:
             return []
         return [d for d in userdata_dir.iterdir() if d.is_dir() and d.name.isdigit()]
     
+    def load_vdf_file(self, file_path):
+        """安全加载VDF文件，支持文本和二进制格式"""
+        try:
+            # 先尝试文本格式
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return vdf.load(f), 'text'
+        except (UnicodeDecodeError, vdf.VDFError):
+            try:
+                # 再尝试二进制格式
+                with open(file_path, 'rb') as f:
+                    return vdf.binary_load(f), 'binary'
+            except vdf.VDFError as e:
+                raise Exception(f"Failed to parse VDF file {file_path}: {e}")
+    
+    def save_vdf_file(self, file_path, data, format_type):
+        """保存VDF文件，保持原格式"""
+        if format_type == 'text':
+            with open(file_path, 'w', encoding='utf-8') as f:
+                vdf.dump(data, f, pretty=True)
+        else:
+            with open(file_path, 'wb') as f:
+                f.write(vdf.binary_dumps(data))
+    
     def parse_current_params(self, current_options):
         """解析当前启动参数为前置和后置部分"""
         if not current_options:
@@ -229,10 +252,9 @@ class SteamLaunchManager:
                 continue
             
             # 读取当前配置
-            with open(localconfig_path, 'rb') as f:
-                data = vdf.binary_load(f)
+            data, vdf_format = self.load_vdf_file(localconfig_path)
             
-            apps = data.get('UserLocalConfigStore', {}).get('Software', {}).get('Valve', {}).get('Steam', {}).get('Apps', {})
+            apps = data.get('UserLocalConfigStore', {}).get('Software', {}).get('Valve', {}).get('Steam', {}).get('apps', {})
             current_options = apps.get(app_id, {}).get('LaunchOptions', '')
             
             # 备份原始配置
@@ -283,8 +305,7 @@ class SteamLaunchManager:
                     apps[app_id]['LaunchOptions'] = new_options
                     
                     # 保存文件
-                    with open(localconfig_path, 'wb') as f:
-                        f.write(vdf.binary_dumps(data))
+                    self.save_vdf_file(localconfig_path, data, vdf_format)
                     
                     success = True
             else:
@@ -336,10 +357,9 @@ class SteamLaunchManager:
                 continue
             
             # 读取当前配置
-            with open(localconfig_path, 'rb') as f:
-                data = vdf.binary_load(f)
+            data, vdf_format = self.load_vdf_file(localconfig_path)
             
-            apps = data.get('UserLocalConfigStore', {}).get('Software', {}).get('Valve', {}).get('Steam', {}).get('Apps', {})
+            apps = data.get('UserLocalConfigStore', {}).get('Software', {}).get('Valve', {}).get('Steam', {}).get('apps', {})
             current_options = apps.get(app_id, {}).get('LaunchOptions', '')
             
             # 计算新配置
