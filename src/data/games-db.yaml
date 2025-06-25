@@ -4,6 +4,35 @@ global:
   dry_run: false
 
 games:
+  # ========== sk ================
+  "731040":
+    # The Invincible 无敌号
+    name: "The Invincible"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+  "1260320":
+    # Party Animals 猛兽派对
+    name: "Party Animals"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+  "668580":
+    # Atomic Heart 原子之心
+    name: "Atomic Heart"
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+
   # ========== ChimeraOS 社区数据库完整导入 ==========
   
   "285820":
