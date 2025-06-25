@@ -5,6 +5,7 @@ Steam Launch Options Manager
 """
 
 import argparse
+import logging
 import subprocess
 import sys
 from datetime import datetime
@@ -18,6 +19,14 @@ try:
 except ImportError:
     print("Error: python-vdf library is required. Install with: pip install vdf")
     sys.exit(1)
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger('steam-launch-manager')
 
 # =============================================================================
 # 配置参数 - Configuration Parameters
@@ -223,7 +232,7 @@ class SteamLaunchManager:
         with open(self.custom_config_path, "w") as f:
             yaml.dump(default_config, f, default_flow_style=False, indent=2)
 
-        print(f"Created custom config at: {self.custom_config_path}")
+        logger.info(f"Created custom config at: {self.custom_config_path}")
         return default_config
 
     def get_game_config(self, app_id, verbose=True):
@@ -232,14 +241,14 @@ class SteamLaunchManager:
         custom_games = self.custom_config.get("games", {})
         if app_id in custom_games:
             if verbose:
-                print(f"Using custom config for {app_id}")
+                logger.info(f"Using custom config for {app_id}")
             return custom_games[app_id], "custom"
 
         # 2. 使用社区预设配置
         community_games = self.community_config.get("games", {})
         if app_id in community_games:
             if verbose:
-                print(f"Using community config for {app_id}")
+                logger.info(f"Using community config for {app_id}")
             return community_games[app_id], "community"
 
         # 3. 没有配置
@@ -256,11 +265,11 @@ class SteamLaunchManager:
             
             # 比较版本
             if self._is_version_higher(inner_version, local_version):
-                print(f"发现更高版本的内置数据库: {inner_version} (当前: {local_version or '无'})")
+                logger.info(f"发现更高版本的内置数据库: {inner_version} (当前: {local_version or '无'})")
                 
                 # 复制内置数据库到本地
                 if self._copy_inner_database():
-                    print("内置数据库已成功覆盖本地配置")
+                    logger.info("内置数据库已成功覆盖本地配置")
                     
                     # 更新版本信息
                     self._update_version_info_for_inner(inner_version)
@@ -268,12 +277,12 @@ class SteamLaunchManager:
                     # 重新加载社区配置
                     self.community_config = self.load_community_config()
                 else:
-                    print("复制内置数据库失败")
+                    logger.error("复制内置数据库失败")
             elif inner_version == local_version:
-                print(f"内置数据库版本已是最新: {inner_version}")
+                logger.debug(f"内置数据库版本已是最新: {inner_version}")
         
         except Exception as e:
-            print(f"检查内置版本时出错: {e}")
+            logger.error(f"检查内置版本时出错: {e}")
 
     def _get_inner_version(self):
         """获取内置版本号"""
@@ -283,7 +292,7 @@ class SteamLaunchManager:
                 with open(inner_version_path, 'r', encoding='utf-8') as f:
                     return f.read().strip()
         except Exception as e:
-            print(f"读取内置版本文件失败: {e}")
+            logger.error(f"读取内置版本文件失败: {e}")
         return None
 
     def _is_version_higher(self, version1, version2):
@@ -308,7 +317,7 @@ class SteamLaunchManager:
         try:
             inner_db_path = Path(INNER_DB_PATH)
             if not inner_db_path.exists():
-                print(f"内置数据库文件不存在: {inner_db_path}")
+                logger.error(f"内置数据库文件不存在: {inner_db_path}")
                 return False
             
             # 确保目录存在
@@ -320,7 +329,7 @@ class SteamLaunchManager:
             
             return True
         except Exception as e:
-            print(f"复制内置数据库失败: {e}")
+            logger.error(f"复制内置数据库失败: {e}")
             return False
 
     def _update_version_info_for_inner(self, inner_version):
@@ -331,7 +340,7 @@ class SteamLaunchManager:
                 f.write(f"Source: inner_database\n")
                 f.write(f"Version: {inner_version}\n")
         except Exception as e:
-            print(f"更新版本信息失败: {e}")
+            logger.error(f"更新版本信息失败: {e}")
 
     def check_community_updates(self):
         """检查并更新社区配置数据库"""
@@ -344,19 +353,19 @@ class SteamLaunchManager:
         try:
             # 检查是否需要更新
             if self._should_update_database():
-                print("Checking for community database updates...")
+                logger.info("Checking for community database updates...")
 
                 # 首先尝试版本检查
                 remote_version = self._get_remote_version()
                 local_version = self._get_local_version()
 
                 if remote_version and local_version and remote_version == local_version:
-                    print(f"Database is up to date (version: {local_version})")
+                    logger.debug(f"Database is up to date (version: {local_version})")
                     self._update_check_timestamp()  # 更新检查时间戳
                     return
 
                 if remote_version:
-                    print(
+                    logger.info(
                         f"New version available: {remote_version} (current: {local_version or 'none'})"
                     )
 
@@ -367,7 +376,7 @@ class SteamLaunchManager:
                     try:
                         yaml.safe_load(content)
                     except yaml.YAMLError as e:
-                        print(f"Downloaded content is not valid YAML: {e}")
+                        logger.error(f"Downloaded content is not valid YAML: {e}")
                         return
 
                     # 保存新数据库
@@ -377,16 +386,16 @@ class SteamLaunchManager:
                     # 更新版本信息
                     self._update_version_info(db_url, remote_version)
 
-                    print("Community database updated successfully")
+                    logger.info("Community database updated successfully")
 
                     # 重新加载社区配置
                     self.community_config = self.load_community_config()
                 else:
-                    print("Failed to download community database from all sources")
-                    print("Using local cache if available")
+                    logger.warning("Failed to download community database from all sources")
+                    logger.warning("Using local cache if available")
 
         except Exception as e:
-            print(f"Failed to check community updates: {e}")
+            logger.error(f"Failed to check community updates: {e}")
 
     def _should_update_database(self):
         """检查是否应该更新数据库"""
@@ -458,7 +467,7 @@ class SteamLaunchManager:
 
         for url in COMMUNITY_DB_URLS:
             try:
-                print(f"Trying to download from: {url}")
+                logger.debug(f"Trying to download from: {url}")
                 request = urllib.request.Request(url)
                 request.add_header("User-Agent", USER_AGENT)
 
@@ -466,13 +475,13 @@ class SteamLaunchManager:
                     request, timeout=NETWORK_TIMEOUT_SECONDS
                 ) as response:
                     content = response.read().decode("utf-8")
-                    print(f"Successfully downloaded from: {url}")
+                    logger.debug(f"Successfully downloaded from: {url}")
                     return True, url, content
             except urllib.error.URLError as e:
-                print(f"Failed to download from {url}: {e}")
+                logger.debug(f"Failed to download from {url}: {e}")
                 continue
             except Exception as e:
-                print(f"Error downloading from {url}: {e}")
+                logger.debug(f"Error downloading from {url}: {e}")
                 continue
 
         return False, None, None
@@ -488,7 +497,7 @@ class SteamLaunchManager:
                 current_time = time.time()
                 os.utime(self.community_version_path, (current_time, current_time))
         except Exception as e:
-            print(f"Failed to update timestamp: {e}")
+            logger.error(f"Failed to update timestamp: {e}")
 
     def _update_version_info(self, source_url, version=None):
         """更新版本信息"""
@@ -501,7 +510,7 @@ class SteamLaunchManager:
                 else:
                     f.write(f"Version: {datetime.now().strftime('%Y.%m.%d')}\n")
         except Exception as e:
-            print(f"Failed to update version info: {e}")
+            logger.error(f"Failed to update version info: {e}")
 
     def force_update_community_db(self):
         """强制更新社区数据库，忽略时间检查"""
@@ -520,7 +529,7 @@ class SteamLaunchManager:
             )
             return result.returncode == 0
         except Exception as e:
-            print(f"Error checking if Steam is running: {e}")
+            logger.error(f"Error checking if Steam is running: {e}")
             return False
 
     def get_steam_user_dirs(self):
@@ -792,15 +801,15 @@ class SteamLaunchManager:
         game_config, config_source = self.get_game_config(app_id, verbose=verbose)
         if not game_config:
             if verbose:
-                print(f"No config found for app {app_id}")
+                logger.warning(f"No config found for app {app_id}")
             return False
 
         # 检查 Steam 是否正在运行
         if verbose and not dry_run and self.is_steam_running():
-            print(
+            logger.warning(
                 "Warning: Steam is running. Changes may not take effect until Steam is restarted."
             )
-            print("Consider stopping Steam first with: steam -shutdown")
+            logger.warning("Consider stopping Steam first with: steam -shutdown")
 
         success = False
         for user_dir in self.get_steam_user_dirs():
@@ -1087,7 +1096,7 @@ def main():
         return
 
     if not args.app_id:
-        print("App ID is required for this command")
+        logger.error("App ID is required for this command")
         return
 
     if args.command == "apply":
