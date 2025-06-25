@@ -23,7 +23,16 @@ except ImportError:
 # =============================================================================
 
 # 社区数据库更新配置
-COMMUNITY_DB_URL = "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/games-db.yaml"
+COMMUNITY_DB_URLS = [
+    "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/games-db.yaml",
+    "https://gitee.com/honjow/steam-launch-manager/raw/master/src/data/games-db.yaml",  # 镜像地址
+    "https://cdn.jsdelivr.net/gh/honjow/steam-launch-manager@master/src/data/games-db.yaml",  # CDN镜像
+]
+VERSION_CHECK_URLS = [
+    "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/VERSION",
+    "https://gitee.com/honjow/steam-launch-manager/raw/master/src/data/VERSION",
+    "https://cdn.jsdelivr.net/gh/honjow/steam-launch-manager@master/src/data/VERSION",
+]
 UPDATE_CHECK_INTERVAL_HOURS = 24  # 检查更新间隔（小时）
 NETWORK_TIMEOUT_SECONDS = 10  # 网络请求超时时间（秒）
 USER_AGENT = "steam-launch-manager/1.0"  # 用户代理字符串
@@ -137,53 +146,48 @@ class SteamLaunchManager:
             return
 
         try:
-            # 使用配置的数据库URL
-            db_url = COMMUNITY_DB_URL
-
             # 检查是否需要更新
             if self._should_update_database():
                 print("Checking for community database updates...")
 
+                # 首先尝试版本检查
+                remote_version = self._get_remote_version()
+                local_version = self._get_local_version()
+
+                if remote_version and local_version and remote_version == local_version:
+                    print(f"Database is up to date (version: {local_version})")
+                    self._update_check_timestamp()  # 更新检查时间戳
+                    return
+
+                if remote_version:
+                    print(
+                        f"New version available: {remote_version} (current: {local_version or 'none'})"
+                    )
+
                 # 下载新数据库
-                import urllib.error
-                import urllib.request
+                success, db_url, content = self._download_database()
+                if success:
+                    # 验证下载的内容是否为有效的YAML
+                    try:
+                        yaml.safe_load(content)
+                    except yaml.YAMLError as e:
+                        print(f"Downloaded content is not valid YAML: {e}")
+                        return
 
-                try:
-                    # 设置超时和用户代理
-                    request = urllib.request.Request(db_url)
-                    request.add_header("User-Agent", USER_AGENT)
+                    # 保存新数据库
+                    with open(self.community_config_path, "w", encoding="utf-8") as f:
+                        f.write(content)
 
-                    with urllib.request.urlopen(
-                        request, timeout=NETWORK_TIMEOUT_SECONDS
-                    ) as response:
-                        content = response.read().decode("utf-8")
+                    # 更新版本信息
+                    self._update_version_info(db_url, remote_version)
 
-                        # 验证下载的内容是否为有效的YAML
-                        try:
-                            yaml.safe_load(content)
-                        except yaml.YAMLError as e:
-                            print(f"Downloaded content is not valid YAML: {e}")
-                            return
+                    print("Community database updated successfully")
 
-                        # 保存新数据库
-                        with open(
-                            self.community_config_path, "w", encoding="utf-8"
-                        ) as f:
-                            f.write(content)
-
-                        # 更新版本信息
-                        self._update_version_info(db_url)
-
-                        print("Community database updated successfully")
-
-                        # 重新加载社区配置
-                        self.community_config = self.load_community_config()
-
-                except urllib.error.URLError as e:
-                    print(f"Failed to download community database: {e}")
+                    # 重新加载社区配置
+                    self.community_config = self.load_community_config()
+                else:
+                    print("Failed to download community database from all sources")
                     print("Using local cache if available")
-                except Exception as e:
-                    print(f"Error updating community database: {e}")
 
         except Exception as e:
             print(f"Failed to check community updates: {e}")
@@ -214,13 +218,88 @@ class SteamLaunchManager:
 
         return False
 
-    def _update_version_info(self, source_url):
+    def _get_remote_version(self):
+        """获取远程版本信息"""
+        import urllib.error
+        import urllib.request
+
+        for url in VERSION_CHECK_URLS:
+            try:
+                request = urllib.request.Request(url)
+                request.add_header("User-Agent", USER_AGENT)
+
+                with urllib.request.urlopen(
+                    request, timeout=NETWORK_TIMEOUT_SECONDS
+                ) as response:
+                    version = response.read().decode("utf-8").strip()
+                    if version:
+                        return version
+            except (urllib.error.URLError, Exception):
+                continue
+        return None
+
+    def _get_local_version(self):
+        """获取本地版本信息"""
+        try:
+            if self.community_version_path.exists():
+                with open(self.community_version_path, "r") as f:
+                    lines = f.readlines()
+                    for line in lines:
+                        if line.startswith("Version: "):
+                            return line.split("Version: ", 1)[1].strip()
+        except Exception:
+            pass
+        return None
+
+    def _download_database(self):
+        """尝试从镜像地址下载数据库"""
+        import urllib.error
+        import urllib.request
+
+        for url in COMMUNITY_DB_URLS:
+            try:
+                print(f"Trying to download from: {url}")
+                request = urllib.request.Request(url)
+                request.add_header("User-Agent", USER_AGENT)
+
+                with urllib.request.urlopen(
+                    request, timeout=NETWORK_TIMEOUT_SECONDS
+                ) as response:
+                    content = response.read().decode("utf-8")
+                    print(f"Successfully downloaded from: {url}")
+                    return True, url, content
+            except urllib.error.URLError as e:
+                print(f"Failed to download from {url}: {e}")
+                continue
+            except Exception as e:
+                print(f"Error downloading from {url}: {e}")
+                continue
+
+        return False, None, None
+
+    def _update_check_timestamp(self):
+        """更新检查时间戳而不修改版本信息"""
+        try:
+            # 如果版本文件存在，只更新时间戳
+            if self.community_version_path.exists():
+                import os
+                import time
+
+                current_time = time.time()
+                os.utime(self.community_version_path, (current_time, current_time))
+        except Exception as e:
+            print(f"Failed to update timestamp: {e}")
+
+    def _update_version_info(self, source_url, version=None):
         """更新版本信息"""
         try:
             with open(self.community_version_path, "w") as f:
                 f.write(f"Updated: {datetime.now().isoformat()}\n")
                 f.write(f"Source: {source_url}\n")
-                f.write(f"Version: {datetime.now().strftime('%Y.%m.%d')}\n")
+                if version:
+                    f.write(f"Version: {version}\n")
+                else:
+                    f.write(f"Version: {datetime.now().strftime('%Y.%m.%d')}\n")
         except Exception as e:
             print(f"Failed to update version info: {e}")
 
