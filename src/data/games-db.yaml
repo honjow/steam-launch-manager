@@ -1,0 +1,35 @@
+
+
+global:
+  backup_enabled: true
+  backup_path: "~/.config/steam-backups"
+  dry_run: false
+
+games:
+  "3489700":
+    # 剑星
+    name: "Stellar Blade"
+    
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+  
+  "1086940":
+    # 博德之门3
+    name: "Baldur's Gate 3"
+    
+    prefix:
+      params:
+        - "SteamDeck=0"
+      user_handling:
+        preserve: true
+        position: "before"
+    suffix:
+      params:
+        - "--skip-launcher"
+      user_handling:
+        preserve: true
+        position: "before"
