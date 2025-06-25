@@ -11,29 +11,22 @@ games:
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
+
   "1260320":
     # Party Animals 猛兽派对
     name: "Party Animals"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
+
   "668580":
     # Atomic Heart 原子之心
     name: "Atomic Heart"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
 
-  # ========== ChimeraOS 社区数据库完整导入 ==========
+  # ========== Chimera-data 数据库完整导入 ==========
   
   "285820":
     # Action Henk - 修复库路径问题
@@ -41,9 +34,6 @@ games:
     prefix:
       params:
         - "LD_LIBRARY_PATH="
-      user_handling:
-        preserve: true
-        position: "before"
         
   "331870":
     # AER Memories of Old - 修复原生版本黑屏问题  
@@ -52,9 +42,6 @@ games:
       params:
         - "-screen-fullscreen"
         - "0"
-      user_handling:
-        preserve: true
-        position: "before"
         
   "108710":
     # Alan Wake - 音频修复
@@ -62,9 +49,6 @@ games:
     prefix:
       params:
         - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
-      user_handling:
-        preserve: true
-        position: "before"
         
   "1086940":
     # 博德之门3 - SteamDeck 兼容性 + 跳过启动器
@@ -72,15 +56,9 @@ games:
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
     suffix:
       params:
         - "--skip-launcher"
-      user_handling:
-        preserve: true
-        position: "before"
         
   "1903340":
     # Clair Obscur: Expedition 33 - SteamDeck 兼容性
@@ -88,10 +66,7 @@ games:
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "243200":
     # The Dark Eye: Memoria - 音频驱动修复
     name: "The Dark Eye: Memoria"
@@ -105,143 +80,104 @@ games:
     suffix:
       params:
         - "-linux"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "377160":
     # Fallout 4 - SteamDeck 兼容性
     name: "Fallout 4"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "960910":
     # Heavy Rain - 音频修复
     name: "Heavy Rain"
     prefix:
       params:
         - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "1048290":
     # Heavy Rain Demo - 音频修复
     name: "Heavy Rain Demo"
     prefix:
       params:
         - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "1659040":
     # HITMAN 3 - SteamDeck 兼容性
     name: "HITMAN 3"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "1210550":
     # Hohokum - SteamDeck 兼容性
     name: "Hohokum"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "2561580":
     # Horizon Zero Dawn Remastered - 显示链接QR码
     name: "Horizon Zero Dawn Remastered"
     suffix:
       params:
         - "-showlinkingqr"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "205950":
     # Jet Set Radio - 可执行文件重定向
     name: "Jet Set Radio"
     type: "script"
     script_template: 'eval $(echo "%command%" | sed "s/jsrsetup.exe/jetsetradio.exe/")'
     description: "修复可执行文件路径问题"
-        
+
   "899770":
     # Last Epoch - SteamDeck 兼容性
     name: "Last Epoch"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "1888930":
     # The Last of Us Part 1 - SteamDeck 兼容性
     name: "The Last of Us Part 1"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "640590":
     # The LEGO NINJAGO Movie Video Game - 音频修复
     name: "The LEGO NINJAGO Movie Video Game"
     prefix:
       params:
         - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "424840":
     # Little Nightmares - 单线程模式
     name: "Little Nightmares"
     suffix:
       params:
         - "-onethread"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "1971870":
     # Mortal Kombat 1 - SteamDeck 兼容性
     name: "Mortal Kombat 1"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "105000":
     # A New Beginning - Final Cut - 音频驱动修复
     name: "A New Beginning - Final Cut"
     type: "script"
     script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "winmm" /f; break; fi; done; %command%'
     description: "音频驱动注册表修复"
-        
+
   "404540":
     # Nex Machina - 音频延迟修复
     name: "Nex Machina"
     prefix:
       params:
-        - "PULSE_LATENCY_MSEC=60"
-      user_handling:
-        preserve: true
-        position: "before"
+        - "PULSE_LATENCY_MSEC=60" 
         
   "230820":
     # The Night of the Rabbit - 音频驱动修复
@@ -249,7 +185,7 @@ games:
     type: "script"
     script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done; %command%'
     description: "音频驱动注册表修复"
-        
+
   "607080":
     # Psychonauts 2 - 强制DX11
     name: "Psychonauts 2"
@@ -257,35 +193,23 @@ games:
       params:
         - "-force"
         - "-dx11"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "971620":
     # Puyo Puyo Champions - 音频修复
     name: "Puyo Puyo Champions"
     prefix:
       params:
         - 'WINEDLLOVERRIDES="xaudio2_7=native,builtin"'
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "1599660":
     # Sackboy A Big Adventure - SteamDeck 兼容性 + DX11
     name: "Sackboy A Big Adventure"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
     suffix:
       params:
         - "-dx11"
-      user_handling:
-        preserve: true
-        position: "before"
         
   "282210":
     # Sid Meier's Starships - 可执行文件重定向
@@ -293,53 +217,41 @@ games:
     type: "script"
     script_template: 'eval $(echo "%command%" | sed "s/Starships64.exe/Starships.exe/")'
     description: "修复64位可执行文件路径"
-        
+
   "969990":
     # SpongeBob SquarePants: Battle for Bikini Bottom - Rehydrated - 音频延迟修复
     name: "SpongeBob SquarePants: Battle for Bikini Bottom - Rehydrated"
     prefix:
       params:
         - "PULSE_LATENCY_MSEC=30"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "3489700":
     # 剑星 - SteamDeck 兼容性
     name: "Stellar Blade"
     prefix:
       params:
         - "SteamDeck=0"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "312670":
     # Strange Brigade - Vulkan 渲染器
     name: "Strange Brigade"
     type: "script"
     script_template: 'eval $(echo "%command%" | sed "s/StrangeBrigade.exe/StrangeBrigade_Vulkan.exe/")'
     description: "启用Vulkan渲染器"
-        
+
   "607050":
     # Wargroove - 跳过介绍
     name: "Wargroove"
     suffix:
       params:
         - "--skip-intro"
-      user_handling:
-        preserve: true
-        position: "before"
-        
+
   "327030":
     # Worms W.M.D - 库路径清理
     name: "Worms W.M.D"
     prefix:
       params:
         - "LD_LIBRARY_PATH="
-      user_handling:
-        preserve: true
-        position: "before"
 
   # ========== 复杂脚本配置示例 ==========
   
@@ -348,7 +260,7 @@ games:
     type: "script"
     script_template: 'ln -s "Game.exe" game.exe; eval $(echo "%command%" | sed "s/Game.exe/game.exe/")'
     description: "创建软链接并重定向可执行文件"
-    
+
   "example_template":
     name: "模板配置示例 (可删除)"
     type: "template"
