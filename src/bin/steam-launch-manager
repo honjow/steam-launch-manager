@@ -18,9 +18,27 @@ except ImportError:
     print("Error: python-vdf library is required. Install with: pip install vdf")
     sys.exit(1)
 
+# =============================================================================
+# 配置参数 - Configuration Parameters
+# =============================================================================
+
+# 社区数据库更新配置
+COMMUNITY_DB_URL = "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/games-db.yaml"
+UPDATE_CHECK_INTERVAL_HOURS = 24  # 检查更新间隔（小时）
+NETWORK_TIMEOUT_SECONDS = 10  # 网络请求超时时间（秒）
+USER_AGENT = "steam-launch-manager/1.0"  # 用户代理字符串
+
+# 默认配置路径
+DEFAULT_CONFIG_PATH = "~/.config/steam-launch-manager"
+DEFAULT_STEAM_PATH = "~/.local/share/Steam"
+DEFAULT_BACKUP_PATH = "~/.config/steam-backups"
+
 
 class SteamLaunchManager:
-    def __init__(self, config_path="~/.config/steam-launch-manager"):
+    def __init__(self, config_path=None):
+        if config_path is None:
+            config_path = DEFAULT_CONFIG_PATH
+
         self.config_dir = Path(config_path).expanduser()
         self.custom_config_path = self.config_dir / "custom" / "games.yaml"
         self.community_config_path = self.config_dir / "community" / "games.yaml"
@@ -43,12 +61,10 @@ class SteamLaunchManager:
         if config_steam_dir:
             self.steam_dir = Path(config_steam_dir).expanduser()
         else:
-            self.steam_dir = Path.home() / ".local/share/Steam"
+            self.steam_dir = Path(DEFAULT_STEAM_PATH).expanduser()
 
         self.backup_dir = Path(
-            self.custom_config.get("global", {}).get(
-                "backup_path", "~/.config/steam-backups"
-            )
+            self.custom_config.get("global", {}).get("backup_path", DEFAULT_BACKUP_PATH)
         ).expanduser()
 
     def load_custom_config(self):
@@ -72,7 +88,7 @@ class SteamLaunchManager:
         default_config = {
             "global": {
                 "backup_enabled": True,
-                "backup_path": "~/.config/steam-backups",
+                "backup_path": DEFAULT_BACKUP_PATH,
                 "dry_run": False,
                 "auto_update_community_db": True,
             },
@@ -121,8 +137,8 @@ class SteamLaunchManager:
             return
 
         try:
-            # 数据库URL
-            db_url = "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/games-db.yaml"
+            # 使用配置的数据库URL
+            db_url = COMMUNITY_DB_URL
 
             # 检查是否需要更新
             if self._should_update_database():
@@ -135,9 +151,11 @@ class SteamLaunchManager:
                 try:
                     # 设置超时和用户代理
                     request = urllib.request.Request(db_url)
-                    request.add_header("User-Agent", "steam-launch-manager/1.0")
+                    request.add_header("User-Agent", USER_AGENT)
 
-                    with urllib.request.urlopen(request, timeout=10) as response:
+                    with urllib.request.urlopen(
+                        request, timeout=NETWORK_TIMEOUT_SECONDS
+                    ) as response:
                         content = response.read().decode("utf-8")
 
                         # 验证下载的内容是否为有效的YAML
@@ -187,8 +205,8 @@ class SteamLaunchManager:
             last_modified = self.community_version_path.stat().st_mtime
             current_time = time.time()
 
-            # 如果超过24小时没更新，则需要更新
-            if current_time - last_modified > 24 * 3600:  # 24小时
+            # 如果超过指定小时数没更新，则需要更新
+            if current_time - last_modified > UPDATE_CHECK_INTERVAL_HOURS * 3600:
                 return True
 
         except Exception:
@@ -221,7 +239,8 @@ class SteamLaunchManager:
                 ["pgrep", "-x", "steam"], capture_output=True, text=True
             )
             return result.returncode == 0
-        except:
+        except Exception as e:
+            print(f"Error checking if Steam is running: {e}")
             return False
 
     def get_steam_user_dirs(self):
