@@ -121,22 +121,98 @@ class SteamLaunchManager:
             return
 
         try:
-            # 这里可以实现实际的更新逻辑
-            # 暂时先从项目的 src/data/games-db.yaml 复制
-            project_db_path = Path(__file__).parent.parent / "data" / "games-db.yaml"
-            if project_db_path.exists():
-                import shutil
+            # 数据库URL
+            db_url = "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/games-db.yaml"
 
-                shutil.copy2(project_db_path, self.community_config_path)
+            # 检查是否需要更新
+            if self._should_update_database():
+                print("Checking for community database updates...")
 
-                # 更新版本信息
-                with open(self.community_version_path, "w") as f:
-                    f.write(f"Updated: {datetime.now().isoformat()}\n")
-                    f.write("Source: local project data\n")
+                # 下载新数据库
+                import urllib.error
+                import urllib.request
 
-                print("Community database updated from project data")
+                try:
+                    # 设置超时和用户代理
+                    request = urllib.request.Request(db_url)
+                    request.add_header("User-Agent", "steam-launch-manager/1.0")
+
+                    with urllib.request.urlopen(request, timeout=10) as response:
+                        content = response.read().decode("utf-8")
+
+                        # 验证下载的内容是否为有效的YAML
+                        try:
+                            yaml.safe_load(content)
+                        except yaml.YAMLError as e:
+                            print(f"Downloaded content is not valid YAML: {e}")
+                            return
+
+                        # 保存新数据库
+                        with open(
+                            self.community_config_path, "w", encoding="utf-8"
+                        ) as f:
+                            f.write(content)
+
+                        # 更新版本信息
+                        self._update_version_info(db_url)
+
+                        print("Community database updated successfully")
+
+                        # 重新加载社区配置
+                        self.community_config = self.load_community_config()
+
+                except urllib.error.URLError as e:
+                    print(f"Failed to download community database: {e}")
+                    print("Using local cache if available")
+                except Exception as e:
+                    print(f"Error updating community database: {e}")
+
         except Exception as e:
-            print(f"Failed to update community database: {e}")
+            print(f"Failed to check community updates: {e}")
+
+    def _should_update_database(self):
+        """检查是否应该更新数据库"""
+        # 如果社区配置不存在，需要更新
+        if not self.community_config_path.exists():
+            return True
+
+        # 检查上次更新时间
+        if not self.community_version_path.exists():
+            return True
+
+        try:
+            import time
+
+            # 获取文件最后修改时间
+            last_modified = self.community_version_path.stat().st_mtime
+            current_time = time.time()
+
+            # 如果超过24小时没更新，则需要更新
+            if current_time - last_modified > 24 * 3600:  # 24小时
+                return True
+
+        except Exception:
+            return True
+
+        return False
+
+    def _update_version_info(self, source_url):
+        """更新版本信息"""
+        try:
+            with open(self.community_version_path, "w") as f:
+                f.write(f"Updated: {datetime.now().isoformat()}\n")
+                f.write(f"Source: {source_url}\n")
+                f.write(f"Version: {datetime.now().strftime('%Y.%m.%d')}\n")
+        except Exception as e:
+            print(f"Failed to update version info: {e}")
+
+    def force_update_community_db(self):
+        """强制更新社区数据库，忽略时间检查"""
+        # 临时删除版本文件以强制更新
+        if self.community_version_path.exists():
+            self.community_version_path.unlink()
+
+        self.check_community_updates()
 
     def is_steam_running(self):
         """检查 Steam 是否正在运行"""
@@ -563,7 +639,7 @@ class SteamLaunchManager:
     def update_community_db(self):
         """手动更新社区数据库"""
         print("Manually updating community database...")
-        self.check_community_updates()
+        self.force_update_community_db()
         print("Update completed!")
 
 
