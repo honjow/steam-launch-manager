@@ -1,0 +1,61 @@
+# Steam Launch Manager - 基础配置示例
+# 适合初次使用者的简单配置
+
+global:
+  backup_enabled: true
+  backup_path: "~/.config/steam-backups"
+  dry_run: false
+
+games:
+  # Team Fortress 2 - 基础优化
+  "440":
+    name: "Team Fortress 2"
+    
+    prefix:
+      params:
+        - "DXVK_HUD=fps"
+      user_handling:
+        preserve: true
+        position: "before"
+    
+    suffix:
+      params:
+        - "-novid"        # 跳过启动视频
+        - "-nojoy"        # 禁用手柄
+        - "-nosteamcontroller"
+      user_handling:
+        preserve: true
+        position: "before"
+
+  # Counter-Strike 2 - 基础设置
+  "730":
+    name: "Counter-Strike 2"
+    
+    suffix:
+      params:
+        - "-novid"
+        - "-high"         # 高优先级
+        - "+fps_max 0"    # 解除帧率限制
+      user_handling:
+        preserve: true
+        position: "before"
+
+  # Garry's Mod - 内存优化
+  "4000":
+    name: "Garry's Mod"
+    
+    prefix:
+      params:
+        - "LD_PRELOAD="   # 清除预加载库
+      user_handling:
+        preserve: true
+        position: "after"
+    
+    suffix:
+      params:
+        - "-novid"
+        - "-nojoy"
+        - "+mat_queue_mode 2"  # 多线程渲染
+      user_handling:
+        preserve: true
+        position: "before" 

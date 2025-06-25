@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -e
+
+# Steam Launch Wrapper
+# 确保在Steam启动前应用启动参数配置
+
+STEAM_MANAGER="/usr/bin/steam-launch-manager"
+CONFIG_FILE="$HOME/.config/steam-launch-manager.yaml"
+LOCK_FILE="/tmp/steam-config-applied.lock"
+
+# 检查Steam是否已在运行
+if pgrep -x "steam" > /dev/null; then
+    echo "Steam is already running, skipping configuration apply"
+    exec steam "$@"
+    exit
+fi
+
+# 检查配置管理器是否存在
+if [ ! -f "$STEAM_MANAGER" ]; then
+    echo "Warning: Steam Launch Manager not found at $STEAM_MANAGER"
+    echo "Installing to /usr/bin/steam-launch-manager..."
+    
+    # 尝试从当前目录复制
+    if [ -f "$(dirname "$0")/steam-launch-manager" ]; then
+        sudo cp "$(dirname "$0")/steam-launch-manager" "$STEAM_MANAGER"
+        sudo chmod +x "$STEAM_MANAGER"
+    else
+        echo "Error: steam-launch-manager not found"
+        exec steam "$@"
+        exit 1
+    fi
+fi
+
+# 检查配置文件是否存在
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "No configuration found, creating default config..."
+    "$STEAM_MANAGER" init
+fi
+
+# 检查是否需要应用配置（避免重复应用）
+NEED_APPLY=false
+
+# 如果没有锁文件，或者配置文件比锁文件新，则需要应用
+if [ ! -f "$LOCK_FILE" ] || [ "$CONFIG_FILE" -nt "$LOCK_FILE" ]; then
+    NEED_APPLY=true
+fi
+
+if [ "$NEED_APPLY" = true ]; then
+    echo "Applying Steam launch options configuration..."
+    
+    # 应用配置
+    if "$STEAM_MANAGER" apply-all; then
+        echo "Configuration applied successfully"
+        touch "$LOCK_FILE"
+    else
+        echo "Warning: Configuration apply failed, continuing anyway..."
+    fi
+else
+    echo "Configuration is up to date"
+fi
+
+# 启动Steam
+echo "Starting Steam..."
+exec steam "$@" 

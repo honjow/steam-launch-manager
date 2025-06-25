@@ -1,0 +1,165 @@
+# Steam Launch Manager - 游戏性能优化配置
+# 专注于提升游戏性能的高级配置
+
+global:
+  backup_enabled: true
+  backup_path: "~/.config/steam-backups"
+  dry_run: false
+
+games:
+  # Cyberpunk 2077 - GPU优化
+  "1091500":
+    name: "Cyberpunk 2077"
+    
+    prefix:
+      params:
+        - "RADV_PERFTEST=aco,llvm"
+        - "__GL_THREADED_OPTIMIZATIONS=1"
+        - "__GL_SHADER_DISK_CACHE=1"
+        - "DXVK_HUD=fps,memory,gpuload"
+        - "DXVK_ASYNC=1"
+        - "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+      
+      conflicts:
+        replace_keys: ["DXVK_HUD", "RADV_PERFTEST"]
+        merge_keys:
+          "LD_LIBRARY_PATH": "prepend"
+    
+    suffix:
+      params:
+        - "-high"
+        - "-USEALLAVAILABLECORES"
+        - "-malloc=system"
+        - "-windowed"
+        - "-noborder"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+
+  # Red Dead Redemption 2 - 内存优化
+  "1174180":
+    name: "Red Dead Redemption 2"
+    
+    prefix:
+      params:
+        - "PROTON_USE_WINED3D=0"
+        - "PROTON_NO_ESYNC=0"
+        - "PROTON_NO_FSYNC=0" 
+        - "DXVK_STATE_CACHE_PATH=/tmp/dxvk-cache"
+        - "STAGING_SHARED_MEMORY=1"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+    
+    suffix:
+      params:
+        - "-cpuLoadRebalancing"
+        - "-fullscreen"
+        - "-ignoreDifferentVideoCard"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+
+  # Baldur's Gate 3 - Vulkan优化
+  "1086940":
+    name: "Baldur's Gate 3"
+    
+    prefix:
+      params:
+        - "VK_INSTANCE_LAYERS="
+        - "RADV_DEBUG=novrsflatshading"
+        - "RADV_PERFTEST=aco"
+        - "DXVK_FILTER_DEVICE_NAME=AMD"
+        - "AMD_VULKAN_ICD=RADV"
+      
+      user_handling:
+        preserve: false  # 强制使用我们的GPU设置
+        position: "replace"
+    
+    suffix:
+      params:
+        - "--vulkan"
+        - "--skip-launcher"
+        - "-high"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+
+  # Doom Eternal - 竞技优化
+  "782330":
+    name: "DOOM Eternal"
+    
+    prefix:
+      params:
+        - "DXVK_HUD=fps"
+        - "DXVK_FRAME_RATE=0"  # 无帧率限制
+        - "__GL_SYNC_TO_VBLANK=0"  # 关闭垂直同步
+        - "vblank_mode=0"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+    
+    suffix:
+      params:
+        - "+r_renderapi 1"      # 强制Vulkan
+        - "+com_skipIntroVideo 1"
+        - "+fps_max 0"
+        - "-fullscreen"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+      
+      conflicts:
+        replace_rules:
+          "-windowed": "-fullscreen"
+          "+fps_max 60": "+fps_max 0"
+          "+vsync 1": "+vsync 0"
+
+  # CS2 - 电竞配置
+  "730":
+    name: "Counter-Strike 2"
+    
+    prefix:
+      params:
+        - "RADV_PERFTEST=aco"
+        - "__GL_THREADED_OPTIMIZATIONS=1"
+        - "MESA_GL_VERSION_OVERRIDE=4.6"
+        - "vblank_mode=0"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+    
+    suffix:
+      params:
+        - "-novid"
+        - "-high" 
+        - "-nojoy"
+        - "-noaafonts"
+        - "-nod3d9ex"
+        - "-threads 8"
+        - "+fps_max 0"
+        - "+cl_forcepreload 1"
+        - "+mat_queue_mode 2"
+        - "+r_dynamic 0"
+        - "-fullscreen"
+      
+      user_handling:
+        preserve: true
+        position: "before"
+      
+      conflicts:
+        replace_rules:
+          "-safe": ""
+          "-windowed": "-fullscreen"
+          "+fps_max 144": "+fps_max 0" 
