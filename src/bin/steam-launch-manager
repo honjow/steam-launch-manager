@@ -538,6 +538,9 @@ class SteamLaunchManager:
         """带重试机制的下载"""
         import time
         
+        # 先获取远程版本号
+        remote_version = self._get_remote_version()
+        
         for attempt in range(RETRY_ATTEMPTS):
             # 指数退避延迟
             if attempt > 0:
@@ -559,7 +562,8 @@ class SteamLaunchManager:
                     yaml.safe_load(content)
                     with open(self.community_config_path, "w", encoding="utf-8") as f:
                         f.write(content)
-                    self._update_version_info(db_url)
+                    # 使用真实的远程版本号
+                    self._update_version_info(db_url, remote_version)
                     return True
                 except Exception as e:
                     logger.error(f"Failed to save downloaded content: {e}")
@@ -646,13 +650,25 @@ class SteamLaunchManager:
 
     def force_update_community_db(self):
         """强制更新社区数据库，忽略时间检查"""
-        # 对于手动更新，直接执行同步下载
+        # 对于手动更新，先检查版本再决定是否下载
         print("Checking network connectivity...")
         if not self._quick_network_check(timeout=5):
             print("❌ Network unavailable, cannot update database")
             return
             
-        print("Network available, downloading database...")
+        print("Checking version...")
+        remote_version = self._get_remote_version()
+        local_version = self._get_local_version()
+        
+        if remote_version and local_version and remote_version == local_version:
+            print(f"✅ Database is already up to date (version: {local_version})")
+            return
+        elif remote_version:
+            print(f"📥 Updating from version {local_version or 'unknown'} to {remote_version}")
+        else:
+            print("⚠️  Could not retrieve remote version, downloading anyway...")
+            
+        print("Downloading database...")
         success = self._download_with_retry()
         if success:
             print("✅ Database updated successfully")
