@@ -154,6 +154,10 @@ steam-launch-manager diff 440                 # 显示详细差异对比
 
 # 数据库管理
 steam-launch-manager update-db                # 手动更新社区数据库
+
+# 日志控制
+steam-launch-manager apply 440 --verbose      # 显示详细日志
+steam-launch-manager apply 440 --quiet        # 只显示错误信息
 ```
 
 ### steam-config-gen
@@ -167,6 +171,61 @@ steam-config-gen --output ~/my-config.yaml    # 指定输出文件
 ```bash
 steam-wrapper                                 # 应用配置后启动Steam
 steam-wrapper -bigpicture                     # 启动大屏模式
+```
+
+## 📋 日志系统
+
+### 智能日志输出
+程序提供三种日志输出方式，根据运行环境自动适配：
+
+- **控制台输出**：用户友好的操作反馈和结果显示
+- **缓存文件**：详细的调试日志和完整记录
+- **systemd 日志**：服务运行时的系统级日志集成
+
+### 日志文件位置
+```bash
+# 详细日志文件（所有DEBUG级别信息）
+~/.cache/steam-launch-manager/steam-launch-manager.log
+
+# 查看日志文件
+tail -f ~/.cache/steam-launch-manager/steam-launch-manager.log
+```
+
+### 命令行控制
+```bash
+# 详细模式 - 显示所有INFO级别以上的日志
+steam-launch-manager apply 440 --verbose
+steam-launch-manager apply 440 -v
+
+# 静默模式 - 只显示ERROR级别的日志  
+steam-launch-manager apply 440 --quiet
+steam-launch-manager apply 440 -q
+
+# 默认模式 - 智能适配（交互式时简洁，脚本调用时详细）
+steam-launch-manager apply 440
+```
+
+### systemd 日志集成
+当程序作为 systemd 服务运行时，日志自动集成到系统日志：
+
+```bash
+# 查看所有日志
+journalctl -t steam-launch-manager
+
+# 实时跟踪日志
+journalctl -t steam-launch-manager -f
+
+# 查看最近的日志
+journalctl -t steam-launch-manager -n 20
+
+# 按时间过滤
+journalctl -t steam-launch-manager --since "1 hour ago"
+
+# 只看错误和警告
+journalctl -t steam-launch-manager -p warning
+
+# 用户服务日志
+journalctl --user -t steam-launch-manager
 ```
 
 ## 🌐 社区数据库
@@ -329,6 +388,24 @@ ls ~/.config/steam-backups/
 ls -la ~/.config/steam-launch-manager/
 ```
 
+### 日志调试
+```bash
+# 查看详细日志
+steam-launch-manager apply 440 --verbose
+
+# 查看完整日志文件
+cat ~/.cache/steam-launch-manager/steam-launch-manager.log
+
+# 实时监控日志
+tail -f ~/.cache/steam-launch-manager/steam-launch-manager.log
+
+# 查看systemd日志（如果作为服务运行）
+journalctl -t steam-launch-manager --since "1 hour ago"
+
+# 清除日志文件（重新开始调试）
+rm ~/.cache/steam-launch-manager/steam-launch-manager.log
+```
+
 ### 网络问题
 ```bash
 # 手动更新数据库
@@ -345,7 +422,7 @@ rm -rf ~/.config/steam-launch-manager/
 steam-launch-manager init
 
 # 查看详细日志
-STEAM_LAUNCH_MANAGER_DEBUG=1 steam-launch-manager apply 440
+steam-launch-manager apply 440 --verbose
 ```
 
 ### 常见问题
@@ -361,6 +438,12 @@ A: 使用`diff`命令查看配置来源和详细内容
 
 **Q: 可以同时使用社区配置和自己的配置吗？**
 A: 用户自定义配置优先级更高，会覆盖社区配置
+
+**Q: 如何查看程序的详细运行日志？**
+A: 使用 `--verbose` 参数或查看缓存日志文件 `~/.cache/steam-launch-manager/steam-launch-manager.log`
+
+**Q: systemd 日志集成是什么意思？**
+A: 当程序作为 systemd 服务运行时，日志会自动记录到系统日志，可以用 `journalctl -t steam-launch-manager` 查看
 
 **Q: 如何贡献游戏配置到社区数据库？**
 A: 在项目GitHub页面提交Issue或Pull Request 
