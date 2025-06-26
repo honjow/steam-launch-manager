@@ -20,13 +20,68 @@ except ImportError:
     print("Error: python-vdf library is required. Install with: pip install vdf")
     sys.exit(1)
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
-)
-logger = logging.getLogger('steam-launch-manager')
+def setup_logging(verbose=False, quiet=False):
+    """设置日志系统：缓存文件 + systemd日志 + 控制台"""
+    import os
+    from pathlib import Path
+    
+    # 缓存目录路径
+    cache_dir = Path("~/.cache/steam-launch-manager").expanduser()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    log_file = cache_dir / "steam-launch-manager.log"
+    
+    # 确定控制台日志级别
+    if quiet:
+        console_level = logging.ERROR
+    elif verbose or not sys.stdout.isatty():  # 脚本调用时详细
+        console_level = logging.INFO
+    else:  # 交互式时简洁
+        console_level = logging.WARNING
+    
+    # 配置处理器
+    handlers = []
+    
+    # 1. 文件处理器 - 详细日志到缓存文件
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    ))
+    handlers.append(file_handler)
+    
+    # 2. 控制台处理器 - 根据模式调整
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(console_level)
+    console_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    ))
+    handlers.append(console_handler)
+    
+    # 3. systemd日志处理器
+    try:
+        # 检查是否在systemd环境下运行
+        if os.environ.get('JOURNAL_STREAM') or os.environ.get('INVOCATION_ID'):
+            from systemd import journal
+            systemd_handler = journal.JournalHandler(SYSLOG_IDENTIFIER='steam-launch-manager')
+            systemd_handler.setLevel(logging.INFO)
+            systemd_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+            handlers.append(systemd_handler)
+    except ImportError:
+        # systemd模块不可用，忽略
+        pass
+    
+    # 配置根logger
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=handlers,
+        force=True  # 强制重新配置
+    )
+    
+    return logging.getLogger('steam-launch-manager')
+
+# 默认初始化（兼容现有代码）
+logger = setup_logging()
 
 # =============================================================================
 # 配置参数 - Configuration Parameters
@@ -1228,8 +1283,18 @@ def main():
     parser.add_argument(
         "--dry-run", action="store_true", help="Preview changes without applying"
     )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed logs"
+    )
+    parser.add_argument(
+        "--quiet", "-q", action="store_true", help="Only show errors"
+    )
 
     args = parser.parse_args()
+    
+    # 重新配置日志系统
+    global logger
+    logger = setup_logging(verbose=args.verbose, quiet=args.quiet)
 
     if args.command == "init":
         # 创建对象时会自动初始化目录和配置文件
