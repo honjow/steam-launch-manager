@@ -41,17 +41,19 @@ python tests/test_diff_functionality.py
 
 ## 📊 测试覆盖范围
 
-### 1. CLI集成测试 (`test_cli_integration.py`) - 14个测试
+### 1. CLI集成测试 (`test_cli_integration.py`) - 16个测试
 标准的unittest集成测试，测试实际的命令行工具：
 
-#### TestSteamLaunchManagerCLI (7个测试)
+#### TestSteamLaunchManagerCLI (9个测试)
 - ✅ `test_help_command` - 测试--help帮助信息
-- ✅ `test_init_command` - 测试初始化配置文件
+- ✅ `test_init_command` - 测试初始化配置目录
 - ✅ `test_validate_command` - 测试配置验证
 - ✅ `test_validate_invalid_config` - 测试无效配置处理
 - ✅ `test_dry_run_mode` - 测试干运行模式
 - ✅ `test_missing_app_id` - 测试缺少App ID的错误处理
 - ✅ `test_missing_config_file` - 测试缺少配置文件的处理
+- 🆕 `test_update_db_command` - 测试社区数据库更新命令
+- 🆕 `test_directory_structure` - 测试目录分离结构
 
 #### TestSteamConfigGenCLI (3个测试)
 - ✅ `test_help_command` - 测试steam-config-gen帮助
@@ -74,6 +76,8 @@ python tests/test_diff_functionality.py
 - ✅ 参数位置控制（前置/后置）
 - ✅ 复杂混合场景处理
 - ✅ 真实配置文件流程演示
+- 🆕 目录分离配置结构测试
+- 🆕 配置优先级测试（用户 vs 社区）
 
 ### 3. Diff功能综合测试 (`test_diff_functionality.py`)
 专门测试diff命令的各种场景：
@@ -82,8 +86,28 @@ python tests/test_diff_functionality.py
 - ✅ Diff vs Dry-run 输出对比
 - ✅ 输出格式验证（表情符号、分段显示）
 - ✅ 边缘情况处理（空配置、缺失文件、无效App ID）
+- 🆕 新配置类型测试（script、template、raw）
+- 🆕 社区配置vs用户配置的diff显示
 
 ## 🔧 测试架构说明
+
+### 配置目录结构测试
+
+#### 新架构测试点
+```
+~/.config/steam-launch-manager/
+├── custom/
+│   └── games.yaml        # 用户自定义配置测试
+└── community/
+    ├── games.yaml        # 社区预设配置测试
+    └── version.txt       # 版本信息测试
+```
+
+#### 测试场景
+- **目录创建测试**：验证初始化时正确创建目录结构
+- **配置优先级测试**：用户配置 > 社区配置 > 无配置
+- **配置合并测试**：不同来源配置的合并逻辑
+- **版本更新测试**：社区数据库更新机制
 
 ### 测试分类和职责
 
@@ -94,6 +118,12 @@ class TestSteamLaunchManagerCLI(unittest.TestCase):
     def test_help_command(self):
         result = self.run_command(['--help'])
         self.assertIn('Steam Launch Options Manager', result.stdout)
+        
+    def test_directory_structure(self):
+        # 测试新的目录分离结构
+        result = self.run_command(['init'])
+        self.assertTrue(Path(config_dir / 'custom' / 'games.yaml').exists())
+        self.assertTrue(Path(config_dir / 'community').exists())
 ```
 
 **特点**:
@@ -101,12 +131,13 @@ class TestSteamLaunchManagerCLI(unittest.TestCase):
 - 适合自动化测试
 - 覆盖所有CLI基础功能
 - 错误断言和验证
+- 🆕 支持新的目录结构测试
 
 #### 2. 功能演示测试 (`test_merge_logic.py`)
 ```python
 # 直接使用核心类进行功能演示
 manager = SteamLaunchManager(config_path=temp_config)
-final_prefix = manager.merge_prefix_params(user_prefix, config_prefix, ...)
+custom_config, community_config = manager.get_game_config(app_id)
 ```
 
 **特点**:
@@ -114,16 +145,17 @@ final_prefix = manager.merge_prefix_params(user_prefix, config_prefix, ...)
 - 详细的场景演示
 - 可视化输出
 - 教学和调试价值
+- 🆕 支持配置优先级演示
 
 #### 3. 专项功能测试 (`test_diff_functionality.py`)
 ```python
 # 创建真实环境进行专项测试
 class DiffFunctionalityTest:
-    def create_steam_environment(self, steam_dir):
-        # 创建真实VDF文件
-    
-    def test_diff_scenarios(self):
-        # 测试各种diff场景
+    def create_directory_config(self, config_dir):
+        # 创建目录分离的配置结构
+        
+    def test_config_source_display(self):
+        # 测试配置来源显示
 ```
 
 **特点**:
@@ -131,6 +163,33 @@ class DiffFunctionalityTest:
 - 专注特定功能
 - 综合场景测试
 - 输出格式验证
+- 🆕 支持多种配置类型测试
+
+## 🆕 新功能测试
+
+### 社区数据库功能测试
+```bash
+# 测试update-db命令
+python -m pytest tests/test_cli_integration.py::TestSteamLaunchManagerCLI::test_update_db_command -v
+
+# 测试配置优先级
+python tests/test_merge_logic.py
+```
+
+### 配置类型测试
+```bash
+# 测试脚本模式配置
+python tests/test_diff_functionality.py
+
+# 测试模板模式配置
+python tests/test_merge_logic.py
+```
+
+### 目录结构测试
+```bash
+# 测试目录分离初始化
+python -m pytest tests/test_cli_integration.py::TestSteamLaunchManagerCLI::test_directory_structure -v
+```
 
 ## 🎯 测试运行示例
 
@@ -162,6 +221,7 @@ python -m pytest tests/test_cli_integration.py::TestSteamLaunchManagerCLI::test_
 - [ ] 已安装依赖: `pip install pyyaml vdf`
 - [ ] 有足够的临时目录空间
 - [ ] 项目结构完整（src/bin/ 目录存在）
+- [ ] 网络连接正常（用于测试update-db功能）
 
 ## 🔍 调试和开发
 
@@ -174,11 +234,20 @@ print(f"临时测试文件位置: {self.temp_dir}")
 
 ### 手动运行测试命令
 ```bash
-# 查看测试创建的临时配置
-cat /tmp/some_temp_dir/test-config.yaml
+# 查看测试创建的临时配置目录
+ls -la /tmp/some_temp_dir/steam-launch-manager/
 
 # 手动运行相同的命令
-python3 src/bin/steam-launch-manager --config /tmp/some_temp_dir/test-config.yaml diff 440
+python3 src/bin/steam-launch-manager --config /tmp/some_temp_dir/steam-launch-manager diff 440
+```
+
+### 测试网络功能
+```bash
+# 测试update-db命令（需要网络）
+python3 src/bin/steam-launch-manager --config /tmp/test-config update-db
+
+# 测试离线模式
+STEAM_LAUNCH_MANAGER_OFFLINE=1 python tests/test_merge_logic.py
 ```
 
 ## 📈 测试结果解读
@@ -187,44 +256,40 @@ python3 src/bin/steam-launch-manager --config /tmp/some_temp_dir/test-config.yam
 ```
 tests/test_cli_integration.py::TestSteamLaunchManagerCLI::test_help_command PASSED
 tests/test_cli_integration.py::TestSteamLaunchManagerCLI::test_init_command PASSED
+tests/test_cli_integration.py::TestSteamLaunchManagerCLI::test_update_db_command PASSED
+tests/test_cli_integration.py::TestSteamLaunchManagerCLI::test_directory_structure PASSED
 ...
-============================== 14 passed in 2.34s ==============================
+============================== 16 passed in 3.45s ==============================
 ```
 
 ### 演示脚本输出示例
 ```
-🎯 Steam Launch Manager - Diff功能综合测试
+🎯 Steam Launch Manager - 参数合并演示
 ================================================================================
-📁 创建模拟Steam环境...
-⚙️  创建测试配置...
+📁 目录分离结构演示...
+⚙️  配置优先级测试...
+🔄 用户配置 vs 社区配置合并...
 
-🎮 TF2 - 简单参数添加
---------------------------------------------------
-✅ 命令执行成功
-输出:
-Configuration diff for app 440 (Team Fortress 2):
-============================================================
-📋 Current configuration: -console
-🎯 Proposed configuration: DXVK_HUD=fps RADV_PERFTEST=aco %command% -console -novid -high
-...
+--- 场景1: 用户配置优先级 ---
+说明: 用户自定义配置覆盖社区预设配置
+配置来源: custom (用户自定义)
+原始启动选项: DXVK_HUD=1 %command% -novid
+合并后启动选项: DXVK_HUD=fps %command% -novid -high
 ```
 
-## 🎉 测试重构总结
+## 🚨 注意事项
 
-### 重构前的问题
-- 5个测试文件，1188行代码
-- 功能重复（simple_cli_test.py vs test_cli_integration.py）
-- 演示分散（demo_diff.py, test_with_fake_data.py）
-- 命名不规范（test-merge-example.py）
+### 网络依赖测试
+- `update-db` 命令测试需要网络连接
+- 可通过环境变量 `STEAM_LAUNCH_MANAGER_OFFLINE=1` 跳过网络测试
+- 使用本地镜像或模拟服务器进行离线测试
 
-### 重构后的优势
-- 3个测试文件，职责清晰
-- 消除重复，保留精华
-- 标准化命名和结构
-- 更好的测试覆盖和组织
+### 权限问题
+- 测试会创建临时目录和文件
+- 确保有足够的读写权限
+- 清理临时文件避免空间不足
 
-### 文件对应关系
-- `test_cli_integration.py` ← 保留原有的标准测试
-- `test_merge_logic.py` ← 重命名自 test-merge-example.py
-- `test_diff_functionality.py` ← 合并 demo_diff.py + test_with_fake_data.py
-- ~~simple_cli_test.py~~ ← 删除（重复功能） 
+### 兼容性测试
+- 在不同Python版本下运行测试
+- 验证跨平台兼容性（Linux、macOS、Windows）
+- 测试不同的Steam安装路径 
