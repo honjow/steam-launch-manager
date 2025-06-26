@@ -26,6 +26,13 @@ games:
       params:
         - "SteamDeck=0"
 
+  "1091500":
+    name: "Cyberpunk 2077"
+    suffix:
+      params:
+        - "--intro-skip"
+        - "-skipStartScreen"
+
   # ========== Chimera-data 数据库完整导入 ==========
   
   "285820":
@@ -40,8 +47,7 @@ games:
     name: "AER Memories of Old"
     suffix:
       params:
-        - "-screen-fullscreen"
-        - "0"
+        - "-screen-fullscreen 0"
         
   "108710":
     # Alan Wake - 音频修复
