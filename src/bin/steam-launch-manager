@@ -434,10 +434,6 @@ class SteamLaunchManager:
 
     def _should_update_database(self):
         """检查是否应该更新数据库"""
-        # 如果是强制更新，跳过时间检查但仍进行版本比较
-        if hasattr(self, "_force_update") and self._force_update:
-            return True
-
         # 如果社区配置不存在，需要更新
         if not self.community_config_path.exists():
             return True
@@ -650,12 +646,20 @@ class SteamLaunchManager:
 
     def force_update_community_db(self):
         """强制更新社区数据库，忽略时间检查"""
-        # 标记为强制更新，跳过时间检查但保留版本比较
-        self._force_update = True
-        try:
-            self.check_community_updates()
-        finally:
-            self._force_update = False
+        # 对于手动更新，直接执行同步下载
+        print("Checking network connectivity...")
+        if not self._quick_network_check(timeout=5):
+            print("❌ Network unavailable, cannot update database")
+            return
+            
+        print("Network available, downloading database...")
+        success = self._download_with_retry()
+        if success:
+            print("✅ Database updated successfully")
+            # 重新加载配置
+            self.community_config = self.load_community_config()
+        else:
+            print("❌ Failed to download database")
 
     def is_steam_running(self):
         """检查 Steam 是否正在运行"""
