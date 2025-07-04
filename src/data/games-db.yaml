@@ -31,7 +31,6 @@ games:
     suffix:
       params:
         - "--intro-skip"
-        - "-skipStartScreen"
 
   # ========== Chimera-data 数据库完整导入 ==========
   
