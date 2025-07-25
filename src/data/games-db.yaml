@@ -32,6 +32,13 @@ games:
       params:
         - "--intro-skip"
 
+  "2277560":
+    # 明末：渊虚之羽
+    name: "WUCHANG: Fallen Feathers"
+    prefix:
+      params:
+        - "SteamDeck=0"
+
   # ========== Chimera-data 数据库完整导入 ==========
   
   "285820":
