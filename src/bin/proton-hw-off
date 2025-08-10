@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Disable hardware-accelerated GPU scheduling for Proton games
+# This sets the Windows registry key HwSchMode to 1 (disabled)
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+# log_file="/tmp/proton-hw-off.log"
+log () {
+    # echo "$(date +'%Y-%m-%d %H:%M:%S') $1" | tee -a "$log_file"
+    systemd-cat -t "proton-hw" -p info <<< "$1"
+}
+
+set -e  # Exit on any error
+
+log "Disabling hardware-accelerated GPU scheduling"
+
+# Use proton-wine-exec to set the registry key
+if "${SCRIPT_DIR}/proton-wine-exec" "C:\\windows\\system32\\reg.exe" ADD \
+   "HKLM\\System\\CurrentControlSet\\Control\\GraphicsDrivers" \
+   /v "HwSchMode" /t "REG_DWORD" /d "1" /f; then
+    log "Successfully disabled hardware-accelerated GPU scheduling"
+else
+    log "Warning: Failed to set registry key for hardware GPU scheduling"
+fi
+
+# Execute the original command
+exec "$@"

@@ -83,7 +83,7 @@ games:
     # The Dark Eye: Memoria - 音频驱动修复
     name: "The Dark Eye: Memoria"
     type: "script"
-    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done; %command%'
+    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/files/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/files/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done; %command%'
     description: "音频驱动注册表修复"
         
   "312530":
@@ -181,7 +181,7 @@ games:
     # A New Beginning - Final Cut - 音频驱动修复
     name: "A New Beginning - Final Cut"
     type: "script"
-    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "winmm" /f; break; fi; done; %command%'
+    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/files/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/files/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "winmm" /f; break; fi; done; %command%'
     description: "音频驱动注册表修复"
 
   "404540":
@@ -195,7 +195,7 @@ games:
     # The Night of the Rabbit - 音频驱动修复
     name: "The Night of the Rabbit"
     type: "script"
-    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/dist/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/dist/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done; %command%'
+    script_template: 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/files/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/files/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "SDL_AUDIODRIVER" /d "directsound" /f; break; fi; done; %command%'
     description: "音频驱动注册表修复"
 
   "607080":
@@ -243,6 +243,7 @@ games:
     prefix:
       params:
         - "SteamDeck=0"
+        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/files/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/files/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\GraphicsDrivers" /v "HwSchMode" /t "REG_DWORD" /d "2" /f; break; fi; done;'
 
   "312670":
     # Strange Brigade - Vulkan 渲染器

@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# proton-wine-exec - Execute wine commands using Steam's Proton
+# Usage: proton-wine-exec <wine-command> [args...]
+# 
+# Examples:
+#   proton-wine-exec reg.exe ADD "HKLM\\..." /v "Key" /t "REG_DWORD" /d "1" /f
+#   proton-wine-exec winecfg
+#   proton-wine-exec notepad.exe
+
+# log_file="/tmp/proton-wine-exec.log"
+log () {
+    # echo "$(date +'%Y-%m-%d %H:%M:%S') $1" | tee -a "$log_file"
+    systemd-cat -t "proton-wine-exec" -p info <<< "$1"
+}
+
+set -e  # Exit on any error
+
+# Check if wine command is provided
+if [ $# -eq 0 ]; then
+    echo "Usage: proton-wine-exec <wine-command> [args...]" >&2
+    echo "Examples:" >&2
+    echo "  proton-wine-exec reg.exe ADD \"HKLM\\\\...\" /v \"Key\" /t \"REG_DWORD\" /d \"1\" /f" >&2
+    echo "  proton-wine-exec winecfg" >&2
+    echo "  proton-wine-exec notepad.exe" >&2
+    exit 1
+fi
+
+# Check if required environment variables are set
+if [ -z "${STEAM_COMPAT_TOOL_PATHS}" ]; then
+    log "Warning: STEAM_COMPAT_TOOL_PATHS not set"
+fi
+
+if [ -z "${STEAM_COMPAT_DATA_PATH}" ]; then
+    log "Warning: STEAM_COMPAT_DATA_PATH not set"
+fi
+
+log "STEAM_COMPAT_TOOL_PATHS: ${STEAM_COMPAT_TOOL_PATHS}"
+log "STEAM_COMPAT_DATA_PATH: ${STEAM_COMPAT_DATA_PATH}"
+log "Wine command: $*"
+
+# Find and use the first available Proton installation
+IFS=:
+for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do
+    log "Checking Proton at: ${PROTON_PATH}"
+    if [ -f "${PROTON_PATH}/files/bin/wine" ]; then
+        log "Found Proton at: ${PROTON_PATH}"
+        
+        # Execute wine command with provided arguments
+        log "Executing: WINEPREFIX=${STEAM_COMPAT_DATA_PATH}/pfx ${PROTON_PATH}/files/bin/wine $*"
+        exec env WINEPREFIX="${STEAM_COMPAT_DATA_PATH}/pfx" "${PROTON_PATH}/files/bin/wine" "$@"
+    fi
+done
+
+# If we reach here, no Proton installation was found
+log "Error: No Proton installation found in STEAM_COMPAT_TOOL_PATHS"
+exit 1
