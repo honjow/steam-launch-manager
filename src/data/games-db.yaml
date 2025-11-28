@@ -243,7 +243,7 @@ games:
     prefix:
       params:
         - "SteamDeck=0"
-        - 'IFS=:; for PROTON_PATH in ${STEAM_COMPAT_TOOL_PATHS}; do if [ -f "$PROTON_PATH/files/bin/wine" ]; then WINEPREFIX=$STEAM_COMPAT_DATA_PATH/pfx $PROTON_PATH/files/bin/wine "C:\\windows\\system32\\reg.exe" ADD "HKLM\\System\\CurrentControlSet\\Control\\GraphicsDrivers" /v "HwSchMode" /t "REG_DWORD" /d "2" /f; break; fi; done;'
+        - "proton-hw-on"
 
   "312670":
     # Strange Brigade - Vulkan 渲染器
