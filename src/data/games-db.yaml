@@ -39,6 +39,21 @@ games:
       params:
         - "SteamDeck=0"
 
+  "3489700":
+    # 剑星 - SteamDeck 兼容性
+    name: "Stellar Blade"
+    prefix:
+      params:
+        - "SteamDeck=0"
+        - "proton-hw-on"
+
+  "2103140":
+    # 魔法工艺
+    name: "Magicraft"
+    prefix:
+      params:
+        - "SteamDeck=0"
+
   # ========== Chimera-data 数据库完整导入 ==========
   
   "285820":
@@ -236,21 +251,6 @@ games:
     prefix:
       params:
         - "PULSE_LATENCY_MSEC=30"
-
-  "3489700":
-    # 剑星 - SteamDeck 兼容性
-    name: "Stellar Blade"
-    prefix:
-      params:
-        - "SteamDeck=0"
-        - "proton-hw-on"
-
-  "2103140":
-    # 魔法工艺
-    name: "Magicraft"
-    prefix:
-      params:
-        - "SteamDeck=0"
 
   "312670":
     # Strange Brigade - Vulkan 渲染器
