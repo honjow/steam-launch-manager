@@ -245,6 +245,13 @@ games:
         - "SteamDeck=0"
         - "proton-hw-on"
 
+  "2103140":
+    # 魔法工艺
+    name: "Magicraft"
+    prefix:
+      params:
+        - "SteamDeck=0"
+
   "312670":
     # Strange Brigade - Vulkan 渲染器
     name: "Strange Brigade"

@@ -103,13 +103,13 @@ COMMAND_PLACEHOLDER = "%command%"
 # 社区数据库更新配置
 COMMUNITY_DB_URLS = [
     "https://gitee.com/honjow/steam-launch-manager/raw/master/src/data/games-db.yaml",  # 镜像地址
+    "https://gitea.switchsystem.eu.org/honjow/steam-launch-manager/raw/branch/master/src/data/games-db.yaml",
     "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/games-db.yaml",  # 原始地址
-    "https://raw.kkgithub.com/honjow/steam-launch-manager/master/src/data/games-db.yaml",  # CDN镜像地址
 ]
 VERSION_CHECK_URLS = [
     "https://gitee.com/honjow/steam-launch-manager/raw/master/src/data/VERSION",
+    "https://gitea.switchsystem.eu.org/honjow/steam-launch-manager/raw/branch/master/src/data/VERSION",
     "https://raw.githubusercontent.com/honjow/steam-launch-manager/refs/heads/master/src/data/VERSION",
-    "https://raw.kkgithub.com/honjow/steam-launch-manager/master/src/data/VERSION",
 ]
 UPDATE_CHECK_INTERVAL_HOURS = 1  # 检查更新间隔（小时）
 NETWORK_TIMEOUT_SECONDS = 10  # 网络请求超时时间（秒）
