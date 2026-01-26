@@ -54,6 +54,20 @@ games:
       params:
         - "SteamDeck=0"
 
+  "1371980":
+    # 恶意不息
+    name: "No Rest for the Wicked"
+    prefix:
+      params:
+        - "SteamDeck=0"
+
+  "1285190":
+    # 无主之地4
+    name: "Borderlands 4"
+    prefix:
+      params:
+        - "SteamDeck=0"
+
   # ========== Chimera-data 数据库完整导入 ==========
   
   "285820":
