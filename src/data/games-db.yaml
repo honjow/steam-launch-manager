@@ -68,6 +68,13 @@ games:
       params:
         - "SteamDeck=0"
 
+  "3764200":
+    # 生化危机 安魂曲
+    name: "Resident Evil Requiem"
+    suffix:
+      params:
+        - "/WineDetectionEnabled:False"
+
   # ========== Chimera-data 数据库完整导入 ==========
   
   "285820":
